@@ -67,12 +67,58 @@ class PromotionItem {
   }
 }
 
+/// Promoção agendada para começar numa data futura (fila do servidor).
+class AgendaItem {
+  final String id;
+  final int produtoId;
+  final String codigo;
+  final String descricao;
+  final double precoVenda;
+  final double precoPromocao;
+  final int descontoPercentual;
+  final String dtInicio;
+  final String? dtFim;
+  final int diasParaInicio;
+  final String status;
+
+  AgendaItem({
+    required this.id,
+    required this.produtoId,
+    required this.codigo,
+    required this.descricao,
+    required this.precoVenda,
+    required this.precoPromocao,
+    required this.descontoPercentual,
+    required this.dtInicio,
+    this.dtFim,
+    required this.diasParaInicio,
+    required this.status,
+  });
+
+  factory AgendaItem.fromJson(Map<String, dynamic> json) {
+    return AgendaItem(
+      id: json['id']?.toString() ?? '',
+      produtoId: (json['produtoId'] as num?)?.toInt() ?? 0,
+      codigo: json['codigo']?.toString() ?? '',
+      descricao: json['descricao']?.toString() ?? '',
+      precoVenda: (json['precoVenda'] as num?)?.toDouble() ?? 0.0,
+      precoPromocao: (json['precoPromocao'] as num?)?.toDouble() ?? 0.0,
+      descontoPercentual: (json['descontoPercentual'] as num?)?.toInt() ?? 0,
+      dtInicio: json['dtInicio']?.toString() ?? '',
+      dtFim: json['dtFim']?.toString(),
+      diasParaInicio: (json['diasParaInicio'] as num?)?.toInt() ?? 0,
+      status: json['status']?.toString() ?? 'AGENDADA',
+    );
+  }
+}
+
 class PromotionCounts {
   final int todas;
   final int ativas;
   final int expirando;
   final int futuras;
   final int vencidas;
+  final int agendadas;
 
   const PromotionCounts({
     this.todas = 0,
@@ -80,6 +126,7 @@ class PromotionCounts {
     this.expirando = 0,
     this.futuras = 0,
     this.vencidas = 0,
+    this.agendadas = 0,
   });
 
   /// Quantas promoções pedem atenção (vencidas ainda gravadas + prestes a expirar).
@@ -93,6 +140,7 @@ class PromotionCounts {
       expirando: n('expirando'),
       futuras: n('futuras'),
       vencidas: n('vencidas'),
+      agendadas: n('agendadas'),
     );
   }
 }

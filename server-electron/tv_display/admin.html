@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações da TV e dos Painéis</title>
+    <style>
+        :root {
+            --primary: #EA580C; --bg: #F8FAFC; --card: #FFFFFF; --border: #E2E8F0;
+            --text: #0F172A; --muted: #64748B; --ok: #059669; --err: #DC2626;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
+        header { background: #fff; border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        header h1 { font-size: 18px; margin: 0; }
+        header a { color: var(--primary); font-weight: 700; text-decoration: none; margin-left: 14px; font-size: 14px; }
+        main { max-width: 900px; margin: 0 auto; padding: 18px 16px 60px; display: grid; gap: 16px; }
+        section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+        section h2 { font-size: 15px; margin: 0 0 4px; }
+        section p.desc { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+        .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+        label.campo { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+        input[type=number], select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; min-width: 110px; background: #fff; }
+        .layouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+        .layout-op { border: 2px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; display: block; }
+        .layout-op input { display: none; }
+        .layout-op strong { display: block; margin-bottom: 4px; }
+        .layout-op span { color: var(--muted); font-size: 12.5px; }
+        .layout-op.sel { border-color: var(--primary); background: #FFF7ED; }
+        .check { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 6px 0; }
+        button { font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--border); background: #fff; padding: 9px 14px; font-weight: 700; }
+        button.primario { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .banners { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; }
+        .banner { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #0F172A; }
+        .banner img { width: 100%; height: 100px; object-fit: contain; display: block; }
+        .banner button { width: 100%; border: 0; border-top: 1px solid var(--border); border-radius: 0; color: var(--err); }
+        #aviso { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 18px; border-radius: 10px; color: #fff; font-weight: 700; display: none; z-index: 10; }
+        #aviso.ok { background: var(--ok); display: block; }
+        #aviso.err { background: var(--err); display: block; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚙️ Configurações da TV e dos Painéis</h1>
+        <nav>
+            <a href="/" target="_blank">Sistema</a>
+            <a href="http://localhost:8081/" id="linkTv" target="_blank">Abrir TV</a>
+            <a href="http://localhost:8082/" id="linkPedidos" target="_blank">Painel de pedidos</a>
+        </nav>
+    </header>
+
+    <main>
+        <section>
+            <h2>Layout da TV</h2>
+            <p class="desc">Como as promoções aparecem na vitrine. Cada aparelho ainda pode trocar o layout pelo seletor da própria TV.</p>
+            <div class="layouts" id="layouts">
+                <label class="layout-op" data-v="DESTAQUE"><input type="radio" name="layout" value="DESTAQUE"><strong>Destaque</strong><span>Um produto por vez, com foto grande e preço em evidência.</span></label>
+                <label class="layout-op" data-v="GRADE"><input type="radio" name="layout" value="GRADE"><strong>Grade</strong><span>Vários produtos ao mesmo tempo, em páginas.</span></label>
+                <label class="layout-op" data-v="ROTACAO"><input type="radio" name="layout" value="ROTACAO"><strong>Rotação com banners</strong><span>Produtos intercalados com os banners da loja.</span></label>
+            </div>
+            <div class="row" style="margin-top:14px">
+                <label class="campo">Segundos por tela<input type="number" id="tvDuracaoSeg" min="3" max="120"></label>
+                <label class="campo">Produtos na grade<input type="number" id="tvGradeItens" min="2" max="12"></label>
+                <label class="campo">Banner a cada (produtos)<input type="number" id="tvBannerACada" min="1" max="20"></label>
+            </div>
+        </section>
+
+        <section>
+            <h2>Banners da loja</h2>
+            <p class="desc">Imagens (PNG ou JPG, ideal 1920×1080) usadas no layout "Rotação com banners". Até 20.</p>
+            <div class="row">
+                <input type="file" id="arquivoBanner" accept="image/png,image/jpeg">
+                <button id="btnEnviarBanner">Enviar banner</button>
+            </div>
+            <div class="banners" id="listaBanners"></div>
+        </section>
+
+        <section>
+            <h2>Chamada de senha por voz</h2>
+            <p class="desc">Quando um pedido fica pronto, a TV mostra a senha em tela cheia e fala o número. O navegador exige um toque na TV (ou iniciar o Chrome com <code>--autoplay-policy=no-user-gesture-required</code>) para liberar o áudio.</p>
+            <label class="check"><input type="checkbox" id="vozAtiva"> Chamar a senha na TV quando o pedido ficar pronto</label>
+            <div class="row" style="margin-top:10px">
+                <label class="campo">Repetições da fala<select id="vozRepeticoes"><option>1</option><option>2</option><option>3</option></select></label>
+                <button id="btnTestarVoz">🔊 Testar voz neste aparelho</button>
+            </div>
+        </section>
+
+        <section>
+            <h2>Alerta de pedido parado</h2>
+            <p class="desc">No painel de pedidos, um pedido em preparo há mais tempo que o limite fica em vermelho e emite aviso sonoro.</p>
+            <div class="row">
+                <label class="campo">Alertar acima de (min)<input type="number" id="alertaPreparoMin" min="1" max="240"></label>
+                <label class="campo">Ignorar após (min)<input type="number" id="alertaIgnorarMin" min="10" max="1440"></label>
+            </div>
+        </section>
+
+        <div><button class="primario" id="btnSalvar">💾 Salvar configurações</button></div>
+    </main>
+    <div id="aviso"></div>
+
+    <script>
+        const API = window.location.origin;
+
+        // Token opcional (servidor com API_TOKEN): abra esta pagina uma vez com ?token=...
+        let TOKEN = '';
+        try {
+            const q = new URLSearchParams(location.search).get('token');
+            if (q) localStorage.setItem('apiToken', q);
+            TOKEN = localStorage.getItem('apiToken') || '';
+        } catch (e) {}
+        function api(path, opts = {}) {
+            const headers = Object.assign({}, opts.headers || {});
+            if (TOKEN) headers['x-api-token'] = TOKEN;
+            return fetch(API + path, Object.assign({}, opts, { headers }));
+        }
+        function aviso(msg, ok = true) {
+            const el = document.getElementById('aviso');
+            el.textContent = msg;
+            el.className = ok ? 'ok' : 'err';
+            clearTimeout(aviso._t);
+            aviso._t = setTimeout(() => { el.className = ''; el.style.display = 'none'; }, 3500);
+            el.style.display = 'block';
+        }
+        const $ = (id) => document.getElementById(id);
+
+        document.getElementById('linkTv').href = location.protocol + '//' + location.hostname + ':8081/';
+        document.getElementById('linkPedidos').href = location.protocol + '//' + location.hostname + ':8082/';
+
+        function marcarLayout(v) {
+            document.querySelectorAll('.layout-op').forEach((el) => {
+                const sel = el.dataset.v === v;
+                el.classList.toggle('sel', sel);
+                el.querySelector('input').checked = sel;
+            });
+        }
+        document.querySelectorAll('.layout-op').forEach((el) => el.addEventListener('click', () => marcarLayout(el.dataset.v)));
+
+        async function carregar() {
+            const r = await api('/api/company');
+            const j = await r.json();
+            const d = j.data || {};
+            marcarLayout(d.tvLayout || 'DESTAQUE');
+            ['tvDuracaoSeg', 'tvGradeItens', 'tvBannerACada', 'alertaPreparoMin', 'alertaIgnorarMin'].forEach((k) => { $(k).value = d[k]; });
+            $('vozAtiva').checked = d.vozAtiva !== false;
+            $('vozRepeticoes').value = String(d.vozRepeticoes || 2);
+            await carregarBanners();
+        }
+
+        async function carregarBanners() {
+            const r = await api('/api/tv/banners');
+            const j = await r.json();
+            const box = $('listaBanners');
+            box.innerHTML = '';
+            (j.data || []).forEach((b) => {
+                const div = document.createElement('div');
+                div.className = 'banner';
+                const img = document.createElement('img');
+                img.src = API + b.url;
+                img.alt = 'banner';
+                const btn = document.createElement('button');
+                btn.textContent = 'Remover';
+                btn.addEventListener('click', async () => {
+                    if (!confirm('Remover este banner?')) return;
+                    const rr = await api('/api/tv/banners/' + encodeURIComponent(b.nome), { method: 'DELETE' });
+                    if (rr.ok) { aviso('Banner removido'); carregarBanners(); } else aviso('Falha ao remover', false);
+                });
+                div.appendChild(img);
+                div.appendChild(btn);
+                box.appendChild(div);
+            });
+            if (!(j.data || []).length) box.innerHTML = '<span style="color:#64748B;font-size:13px">Nenhum banner enviado.</span>';
+        }
+
+        $('btnEnviarBanner').addEventListener('click', async () => {
+            const f = $('arquivoBanner').files[0];
+            if (!f) return aviso('Escolha uma imagem primeiro', false);
+            const fd = new FormData();
+            fd.append('banner', f);
+            const r = await api('/api/tv/banners', { method: 'POST', body: fd });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok) { aviso('Banner enviado'); $('arquivoBanner').value = ''; carregarBanners(); }
+            else aviso(j.error || 'Falha no envio', false);
+        });
+
+        $('btnSalvar').addEventListener('click', async () => {
+            const body = {
+                tvLayout: (document.querySelector('input[name=layout]:checked') || {}).value || 'DESTAQUE',
+                tvDuracaoSeg: parseInt($('tvDuracaoSeg').value, 10),
+                tvGradeItens: parseInt($('tvGradeItens').value, 10),
+                tvBannerACada: parseInt($('tvBannerACada').value, 10),
+                alertaPreparoMin: parseInt($('alertaPreparoMin').value, 10),
+                alertaIgnorarMin: parseInt($('alertaIgnorarMin').value, 10),
+                vozAtiva: $('vozAtiva').checked,
+                vozRepeticoes: parseInt($('vozRepeticoes').value, 10)
+            };
+            const r = await api('/api/company/theme', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && j.success) aviso('Configurações salvas. A TV e os painéis atualizam sozinhos.');
+            else aviso(j.error || 'Não foi possível salvar', false);
+        });
+
+        $('btnTestarVoz').addEventListener('click', () => {
+            if (!window.speechSynthesis) return aviso('Este navegador não tem voz', false);
+            const u = new SpeechSynthesisUtterance('Senha quarenta e dois, pedido pronto.');
+            u.lang = 'pt-BR';
+            u.rate = 0.9;
+            const v = speechSynthesis.getVoices().find((x) => (x.lang || '').toLowerCase().startsWith('pt'));
+            if (v) u.voice = v;
+            speechSynthesis.speak(u);
+        });
+
+        carregar().catch(() => aviso('Não foi possível carregar as configurações', false));
+    </script>
+</body>
+</html>

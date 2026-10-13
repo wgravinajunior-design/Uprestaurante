@@ -30,6 +30,7 @@ class _BatchPercentDialogState extends State<_BatchPercentDialog> {
   DateTime? _start;
   DateTime? _end;
   String? _error;
+  bool _forcar = false;
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _isoFormat = DateFormat('yyyy-MM-dd');
 
@@ -93,6 +94,7 @@ class _BatchPercentDialogState extends State<_BatchPercentDialog> {
 
     Navigator.pop(context, {
       'percentual': pct,
+      if (widget.promo && _forcar) 'forcar': true,
       if (widget.promo && _start != null) 'dtInicio': _isoFormat.format(_start!),
       if (widget.promo && _end != null) 'dtFim': _isoFormat.format(_end!),
     });
@@ -155,6 +157,24 @@ class _BatchPercentDialogState extends State<_BatchPercentDialog> {
                   const SizedBox(width: 8),
                   _dateButton(isStart: false),
                 ],
+              ),
+            ],
+            if (widget.promo) ...[
+              const SizedBox(height: 6),
+              CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: _forcar,
+                onChanged: (v) => setState(() => _forcar = v ?? false),
+                title: const Text(
+                  'Substituir promoção que já exista no período',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+                subtitle: const Text(
+                  'Sem marcar, produtos com conflito são pulados e listados no resultado.',
+                  style: TextStyle(fontSize: 11),
+                ),
               ),
             ],
             if (_error != null) ...[

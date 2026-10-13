@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'batch_dialogs.dart';
 import 'product_edit_dialog.dart';
+import 'schedule_promo_dialog.dart';
 
 /// Visão das promoções: ativas, expirando, futuras e vencidas, com ação de encerrar.
 class PromotionsView extends StatefulWidget {
@@ -19,6 +20,7 @@ class PromotionsView extends StatefulWidget {
 
 class _PromotionsViewState extends State<PromotionsView> {
   PromotionsData? _data;
+  List<AgendaItem> _agenda = [];
   bool _loading = true;
   String? _error;
   String _filtro = 'TODAS'; // TODAS | ATIVAS | EXPIRANDO | FUTURAS | VENCIDAS
@@ -31,6 +33,17 @@ class _PromotionsViewState extends State<PromotionsView> {
   void initState() {
     super.initState();
     _load();
+    ApiService.reconnected.addListener(_onReconnected);
+  }
+
+  @override
+  void dispose() {
+    ApiService.reconnected.removeListener(_onReconnected);
+    super.dispose();
+  }
+
+  void _onReconnected() {
+    if (mounted) _load();
   }
 
   Future<void> _load() async {
@@ -40,9 +53,14 @@ class _PromotionsViewState extends State<PromotionsView> {
     });
     try {
       final data = await ApiService.getPromotions();
+      var agenda = _agenda;
+      try {
+        agenda = await ApiService.getAgenda();
+      } catch (_) {/* mantém a lista anterior */}
       if (!mounted) return;
       setState(() {
         _data = data;
+        _agenda = agenda;
         _loading = false;
       });
       widget.onChanged?.call(data.contagem);
@@ -195,7 +213,9 @@ class _PromotionsViewState extends State<PromotionsView> {
 
   Widget _buildHeader() {
     final vencidas = _data?.itens.where((p) => p.isVencida).toList() ?? const <PromotionItem>[];
-    return Wrap(
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
       alignment: WrapAlignment.spaceBetween,
       crossAxisAlignment: WrapCrossAlignment.center,
       runSpacing: 8,
@@ -214,6 +234,12 @@ class _PromotionsViewState extends State<PromotionsView> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ElevatedButton.icon(
+              onPressed: _busy ? null : _agendarNova,
+              icon: const Icon(Icons.event_available, size: 18),
+              label: const Text('Agendar promoção'),
+            ),
+            const SizedBox(width: 8),
             if (vencidas.isNotEmpty)
               OutlinedButton.icon(
                 onPressed: _busy ? null : () => _encerrar(vencidas, titulo: 'Limpar promoções vencidas'),
@@ -229,7 +255,7 @@ class _PromotionsViewState extends State<PromotionsView> {
           ],
         ),
       ],
-    );
+    ));
   }
 
   Widget _buildAvisos(PromotionCounts c) {
@@ -295,6 +321,7 @@ class _PromotionsViewState extends State<PromotionsView> {
         chip('EXPIRANDO', 'Expirando', c.expirando),
         chip('FUTURAS', 'Futuras', c.futuras),
         chip('VENCIDAS', 'Vencidas', c.vencidas),
+        chip('AGENDADAS', 'Agendadas', _agenda.length),
       ],
     );
   }
@@ -318,6 +345,8 @@ class _PromotionsViewState extends State<PromotionsView> {
       );
     }
 
+    if (_filtro == 'AGENDADAS') return _buildAgendaLista();
+
     final itens = _filtrados;
     if (itens.isEmpty) {
       return const Center(
@@ -329,6 +358,108 @@ class _PromotionsViewState extends State<PromotionsView> {
       itemCount: itens.length,
       separatorBuilder: (ctx, i) => const SizedBox(height: 8),
       itemBuilder: (ctx, i) => _buildLinha(itens[i]),
+    );
+  }
+
+  Future<void> _agendarNova() async {
+    final r = await showSchedulePromoDialog(context);
+    if (r == null || !mounted) return;
+    final modo = r['modo']?.toString();
+    final ini = r['dtInicio']?.toString() ?? '';
+    final txt = modo == 'AGENDADA'
+        ? 'Promoção agendada para ${_fmtDate(ini)}. A atual segue valendo até lá.'
+        : 'Promoção gravada (${_fmtDate(ini)}).';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(backgroundColor: AppTheme.successLight, behavior: SnackBarBehavior.floating, content: Text(txt)),
+    );
+    setState(() => _filtro = modo == 'AGENDADA' ? 'AGENDADAS' : 'FUTURAS');
+    await _load();
+  }
+
+  Future<void> _cancelarAgenda(AgendaItem a) async {
+    final ok = await _confirmar(
+      'Cancelar agendamento',
+      'Cancelar a promoção agendada de "${a.descricao}" para ${_fmtDate(a.dtInicio)}?',
+      'Cancelar agendamento',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await ApiService.cancelAgenda(a.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppTheme.dangerLight, content: Text(e.toString().replaceAll('Exception: ', ''))),
+      );
+    }
+    await _load();
+  }
+
+  Widget _buildAgendaLista() {
+    if (_agenda.isEmpty) {
+      return const Center(
+        child: Text(
+          'Nenhuma promoção na fila. Use "Agendar promoção" para deixar a próxima pronta.',
+          style: TextStyle(color: AppTheme.textSecondary),
+        ),
+      );
+    }
+    return ListView.separated(
+      itemCount: _agenda.length,
+      separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+      itemBuilder: (ctx, i) {
+        final a = _agenda[i];
+        final dias = a.diasParaInicio;
+        final quando = dias <= 0 ? 'Começa hoje' : (dias == 1 ? 'Começa amanhã' : 'Começa em $dias dias');
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceWhite,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFBFDBFE)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.event_note, color: Color(0xFF2563EB)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(a.descricao,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${_fmtDate(a.dtInicio)} → ${a.dtFim == null ? 'sem término' : _fmtDate(a.dtFim)}  •  $quando',
+                      style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted),
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(spacing: 6, children: [
+                      _pill('AGENDADA', const Color(0xFF2563EB)),
+                      _pill('-${a.descontoPercentual}%', AppTheme.primary),
+                    ]),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(_money.format(a.precoVenda),
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textMuted, decoration: TextDecoration.lineThrough)),
+                  Text(_money.format(a.precoPromocao),
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppTheme.primary)),
+                ],
+              ),
+              IconButton(
+                tooltip: 'Cancelar agendamento',
+                icon: const Icon(Icons.highlight_off, color: AppTheme.dangerLight),
+                onPressed: _busy ? null : () => _cancelarAgenda(a),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db');
+const agenda = require('./agenda');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -54,7 +55,7 @@ app.use('/api', (req, res, next) => {
         res.on('finish', () => {
             if (res.statusCode >= 400) return;
             if (alvo.startsWith('/orders')) sseBroadcast('orders');
-            else if (alvo.startsWith('/products') || alvo.startsWith('/company')) sseBroadcast('products');
+            else if (alvo.startsWith('/products') || alvo.startsWith('/company') || alvo.startsWith('/promotions') || alvo.startsWith('/tv')) sseBroadcast('products');
         });
     }
     next();
@@ -106,12 +107,24 @@ app.use((req, res, next) => {
 });
 
 // --- COMPANY & THEME CONFIGURATION ---
-const configDir = path.join(__dirname, '..', 'config');
+const configDir = process.env.CONFIG_DIR || path.join(__dirname, '..', 'config');
 if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
 }
 const themeConfigPath = path.join(configDir, 'company_theme.json');
 const customLogoPath = path.join(configDir, 'company_logo.png');
+
+// Padroes das configuracoes operacionais (TV, painel de pedidos, voz)
+const OPERACIONAL_PADRAO = {
+    alertaPreparoMin: 10,     // pedido em preparo ha mais que isto = alerta
+    alertaIgnorarMin: 180,    // acima disto o pedido e considerado esquecido (nao alerta)
+    tvLayout: 'DESTAQUE',     // DESTAQUE | GRADE | ROTACAO
+    tvDuracaoSeg: 8,
+    tvGradeItens: 6,
+    tvBannerACada: 3,         // na ROTACAO: um banner a cada N produtos
+    vozAtiva: true,
+    vozRepeticoes: 2
+};
 
 function getThemeConfig() {
     try {
@@ -155,6 +168,7 @@ app.get('/api/company', async (req, res) => {
                 corPrimaria: themeCfg.corPrimaria || '#FF6B00',
                 corSecundaria: themeCfg.corSecundaria || '#EA580C',
                 modoTema: themeCfg.modoTema || 'light',
+                ...Object.fromEntries(Object.keys(OPERACIONAL_PADRAO).map((k) => [k, themeCfg[k] !== undefined ? themeCfg[k] : OPERACIONAL_PADRAO[k]])),
                 temLogoCustom: hasCustomLogo,
                 logoUrl: '/api/company/logo'
             }
@@ -188,6 +202,29 @@ const handleSaveTheme = async (req, res) => {
                 return res.status(400).json({ success: false, error: "modoTema deve ser 'light' ou 'dark'" });
             }
             patch.modoTema = body.modoTema;
+        }
+        // Configuracoes operacionais (faixas validadas)
+        const faixas = {
+            alertaPreparoMin: [1, 240], alertaIgnorarMin: [10, 1440], tvDuracaoSeg: [3, 120],
+            tvGradeItens: [2, 12], tvBannerACada: [1, 20], vozRepeticoes: [1, 3]
+        };
+        for (const [k, [min, max]] of Object.entries(faixas)) {
+            if (body[k] !== undefined) {
+                const n = parseInt(body[k], 10);
+                if (!Number.isInteger(n) || n < min || n > max) {
+                    return res.status(400).json({ success: false, error: `${k} deve estar entre ${min} e ${max}` });
+                }
+                patch[k] = n;
+            }
+        }
+        if (body.tvLayout !== undefined) {
+            if (!['DESTAQUE', 'GRADE', 'ROTACAO'].includes(body.tvLayout)) {
+                return res.status(400).json({ success: false, error: 'tvLayout inválido' });
+            }
+            patch.tvLayout = body.tvLayout;
+        }
+        for (const k of ['vozAtiva']) {
+            if (body[k] !== undefined) patch[k] = body[k] === true || body[k] === 'true';
         }
         const updated = {
             ...current,
@@ -383,7 +420,17 @@ app.post('/api/products/:id/image', upload.single('image'), async (req, res) => 
         if (!req.file) {
             return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
         }
-        await db.saveProductImage(id, req.file.buffer);
+        let imagem = req.file.buffer;
+        if (sharpLib) {
+            try {
+                imagem = await sharpLib(imagem).rotate()
+                    .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+                    .flatten({ background: '#ffffff' }).jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+            } catch (e) {
+                return res.status(400).json({ success: false, error: 'Imagem inválida ou corrompida' });
+            }
+        }
+        await db.saveProductImage(id, imagem);
         logEvent('UPDATE', `Foto atualizada para produto ${id}`);
         res.json({ success: true, message: 'Foto atualizada com sucesso' });
     } catch (err) {
@@ -575,11 +622,124 @@ app.post('/api/orders/quick-ticket', async (req, res) => {
     }
 });
 
+// --- Saude do servidor / banco (usada pela tela "servidor offline") ---
+app.get('/api/health', async (req, res) => {
+    try {
+        await db.query('SELECT 1 AS OK FROM RDB$DATABASE');
+        res.json({ success: true, db: true, time: new Date().toISOString() });
+    } catch (err) {
+        res.status(503).json({ success: false, db: false, error: err.message });
+    }
+});
+
+// --- Agenda de promocoes ---
+app.post('/api/promotions/schedule', async (req, res) => {
+    try {
+        const r = await agenda.agendar(req.body || {});
+        logEvent('AUDIT', `Promoção ${r.modo === 'AGENDADA' ? 'agendada' : 'gravada'} para o produto ${r.produtoId} (de ${r.dtInicio}${r.dtFim ? ' até ' + r.dtFim : ''})`);
+        res.json({ success: true, data: r });
+    } catch (err) {
+        if (err.codigo === 'CONFLITO') {
+            return res.status(409).json({ success: false, codigo: 'CONFLITO', error: err.message, detalhes: err.detalhes });
+        }
+        logEvent('ERROR', 'Erro ao agendar promoção: ' + err.message);
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/promotions/agenda', async (req, res) => {
+    try {
+        const data = await agenda.listar({ incluirFinalizadas: req.query.todas === '1' });
+        res.json({ success: true, data });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.delete('/api/promotions/agenda/:agendaId', async (req, res) => {
+    try {
+        const r = await agenda.cancelar(req.params.agendaId);
+        logEvent('AUDIT', `Agendamento de promoção ${r.id} cancelado`);
+        res.json({ success: true, data: r });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+// --- Banners da TV (arquivos em config/banners) ---
+const bannersDir = path.join(configDir, 'banners');
+const BANNER_RE = /^banner_[0-9]+\.jpg$/;
+let sharpLib = null;
+try { sharpLib = require('sharp'); } catch (e) { sharpLib = null; }
+
+function listarBanners() {
+    if (!fs.existsSync(bannersDir)) return [];
+    return fs.readdirSync(bannersDir)
+        .filter((n) => BANNER_RE.test(n))
+        .sort()
+        .map((n) => ({
+            nome: n,
+            url: `/api/tv/banners/file/${n}?v=${Math.floor(fs.statSync(path.join(bannersDir, n)).mtimeMs)}`
+        }));
+}
+
+app.get('/api/tv/banners', (req, res) => {
+    res.json({ success: true, data: listarBanners() });
+});
+
+app.get('/api/tv/banners/file/:nome', (req, res) => {
+    if (!BANNER_RE.test(req.params.nome)) return res.status(400).end();
+    const p = path.join(bannersDir, req.params.nome);
+    if (!fs.existsSync(p)) return res.status(404).end();
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(p);
+});
+
+app.post('/api/tv/banners', upload.single('banner'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ success: false, error: 'Nenhum arquivo enviado' });
+        let buf = req.file.buffer;
+        const isPng = buf.length > 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+        const isJpg = buf.length > 3 && buf[0] === 0xFF && buf[1] === 0xD8;
+        if (!isPng && !isJpg) return res.status(400).json({ success: false, error: 'Envie uma imagem PNG ou JPG' });
+        if (listarBanners().length >= 20) return res.status(400).json({ success: false, error: 'Limite de 20 banners' });
+
+        // normaliza para JPEG de ate 1920px (leve para a TV)
+        if (sharpLib) {
+            buf = await sharpLib(buf).rotate().resize({ width: 1920, height: 1080, fit: 'inside', withoutEnlargement: true })
+                .flatten({ background: '#ffffff' }).jpeg({ quality: 85 }).toBuffer();
+        } else if (!isJpg) {
+            return res.status(400).json({ success: false, error: 'Conversão indisponível: envie JPG' });
+        }
+        fs.mkdirSync(bannersDir, { recursive: true });
+        const nome = `banner_${Date.now()}.jpg`;
+        fs.writeFileSync(path.join(bannersDir, nome), buf);
+        logEvent('AUDIT', `Banner da TV adicionado (${nome})`);
+        res.json({ success: true, data: listarBanners() });
+    } catch (err) {
+        logEvent('ERROR', 'Erro ao salvar banner: ' + err.message);
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.delete('/api/tv/banners/:nome', (req, res) => {
+    try {
+        if (!BANNER_RE.test(req.params.nome)) return res.status(400).json({ success: false, error: 'Nome inválido' });
+        const p = path.join(bannersDir, req.params.nome);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+        logEvent('AUDIT', `Banner da TV removido (${req.params.nome})`);
+        res.json({ success: true, data: listarBanners() });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
 // --- Promocoes (ativas / expirando / futuras / vencidas) ---
 app.get('/api/promotions', async (req, res) => {
     try {
         const estado = String(req.query.estado || 'TODAS').toUpperCase();
         const data = await db.getPromotions({ estado, diasAlerta: req.query.dias });
+        data.contagem.agendadas = agenda.contarPendentes();
         res.json({ success: true, data });
     } catch (err) {
         logEvent('ERROR', 'Erro ao listar promoções: ' + err.message);
@@ -591,7 +751,40 @@ app.get('/api/promotions', async (req, res) => {
 app.post('/api/products/batch', async (req, res) => {
     try {
         const { ids, acao, params } = req.body || {};
-        const result = await db.batchUpdateProducts({ ids, acao, params: params || {} });
+        let result;
+        const p = params || {};
+        const hojeIso = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+        const futuro = acao === 'PROMOCAO_PERCENTUAL' && p.dtInicio && String(p.dtInicio).substring(0, 10) > hojeIso;
+
+        if (futuro) {
+            // Promoção com início futuro: passa pela agenda (detecta conflito e preserva a promoção atual)
+            const lista = [...new Set((Array.isArray(ids) ? ids : []).map((v) => parseInt(v, 10)).filter((v) => Number.isInteger(v) && v > 0))];
+            if (lista.length === 0) return res.status(400).json({ success: false, error: 'Selecione ao menos um produto' });
+            if (lista.length > 200) return res.status(400).json({ success: false, error: 'Máximo de 200 produtos por operação' });
+            const resultados = [];
+            for (const id of lista) {
+                try {
+                    const r = await agenda.agendar({
+                        produtoId: id, percentual: p.percentual, dtInicio: p.dtInicio, dtFim: p.dtFim, forcar: p.forcar === true
+                    });
+                    resultados.push({
+                        id, ok: true,
+                        detalhe: r.modo === 'AGENDADA' ? `Agendada para ${r.dtInicio}` : `Programada para ${r.dtInicio}`
+                    });
+                } catch (e) {
+                    resultados.push({
+                        id, ok: false,
+                        erro: e.codigo === 'CONFLITO'
+                            ? 'Já existe promoção no período (marque "Substituir promoção que já exista")'
+                            : e.message
+                    });
+                }
+            }
+            const okQtd = resultados.filter((r) => r.ok).length;
+            result = { total: resultados.length, ok: okQtd, falhas: resultados.length - okQtd, resultados };
+        } else {
+            result = await db.batchUpdateProducts({ ids, acao, params: p });
+        }
         logEvent('AUDIT', `Lote ${acao}: ${result.ok}/${result.total} produtos alterados (Auditoria gerada)`);
         res.json({ success: true, data: result });
     } catch (err) {
@@ -692,8 +885,26 @@ if (fs.existsSync(flutterWebPath)) {
     });
 }
 
+let agendaTimer = null;
+function startAgenda() {
+    if (agendaTimer) return;
+    const rodar = async () => {
+        try {
+            const r = await agenda.processarVencimentos();
+            if (r.aplicadas > 0) {
+                logEvent('AUDIT', `Agenda: ${r.aplicadas} promoção(ões) iniciada(s) automaticamente`);
+                sseBroadcast('products');
+            }
+        } catch (e) { /* banco indisponivel: tenta no proximo ciclo */ }
+    };
+    setTimeout(rodar, 5000);
+    agendaTimer = setInterval(rodar, 60000);
+    if (agendaTimer.unref) agendaTimer.unref();
+}
+
 function startServer(port = PORT, tvPort = PORT_TV, ordersPort = PORT_ORDERS) {
     startChangeWatcher();
+    startAgenda();
     return new Promise((resolve, reject) => {
         const server = app.listen(port, () => {
             logEvent('SYSTEM', `Servidor Principal HTTP ativo na porta ${port}`);

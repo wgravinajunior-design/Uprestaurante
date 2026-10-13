@@ -497,6 +497,175 @@
             from { opacity: 0; transform: translateY(15px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        /* --- Layout em GRADE --- */
+        .hero-stage.modo-grade { display: block; }
+        .hero-stage.modo-banner { display: block; }
+
+        .grade {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: repeat(var(--cols, 3), 1fr);
+            grid-template-rows: repeat(var(--rows, 2), 1fr);
+            gap: 1.4vw;
+            padding: 0.5vh 0;
+        }
+
+        .grade-card {
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .grade-img {
+            position: relative;
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.5) 100%);
+            padding: 0.8vw;
+        }
+
+        .grade-img img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5));
+        }
+
+        .grade-sem-foto { color: var(--text-muted); font-size: clamp(12px, 1.1vw, 18px); }
+
+        .grade-off {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: linear-gradient(135deg, #FF1E00, #EA580C);
+            color: #fff;
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: clamp(14px, 1.5vw, 26px);
+            padding: 4px 12px;
+            border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(234, 88, 12, 0.55);
+        }
+
+        .grade-info { padding: 0.9vw 1.1vw 1.1vw; }
+
+        .grade-name {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: clamp(14px, 1.45vw, 26px);
+            line-height: 1.15;
+            text-transform: uppercase;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            min-height: 2.3em;
+        }
+
+        .grade-prices {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .grade-de {
+            color: #EF4444;
+            text-decoration: line-through;
+            font-weight: 700;
+            font-size: clamp(12px, 1.15vw, 20px);
+        }
+
+        .grade-por {
+            color: var(--accent-gold);
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: clamp(22px, 2.5vw, 44px);
+            text-shadow: 0 0 20px var(--accent-gold-glow);
+        }
+
+        /* --- Banner --- */
+        .banner-slide {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 28px;
+            overflow: hidden;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+        }
+        .banner-slide img { width: 100%; height: 100%; object-fit: contain; }
+
+        /* --- Chamada de senha --- */
+        .call-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 2vh;
+            background: radial-gradient(circle at center, rgba(16, 185, 129, 0.95) 0%, rgba(4, 120, 87, 0.97) 70%);
+            text-align: center;
+        }
+        .call-overlay.show { display: flex; animation: call-in 0.35s ease-out; }
+        @keyframes call-in { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
+        .call-label { font-family: var(--font-display); font-weight: 800; font-size: clamp(24px, 3.2vw, 56px); letter-spacing: 4px; color: #D1FAE5; }
+        .call-senha { font-family: var(--font-display); font-weight: 900; font-size: clamp(120px, 24vw, 420px); line-height: 1; color: #fff; text-shadow: 0 10px 40px rgba(0,0,0,0.35); animation: call-pulse 1.2s ease-in-out infinite; }
+        .call-sub { font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 4vw, 72px); color: #fff; letter-spacing: 2px; }
+        @keyframes call-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        .voz-btn {
+            position: fixed;
+            bottom: 24px;
+            left: 32px;
+            z-index: 120;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: #F59E0B;
+            color: #111827;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-weight: 800;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(245, 158, 11, 0.5);
+            animation: call-pulse 1.6s ease-in-out infinite;
+        }
+        .voz-btn.show { display: flex; }
+
+        .offline-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 300;
+            display: none;
+            justify-content: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: #B91C1C;
+            color: #fff;
+            font-weight: 800;
+            font-size: clamp(13px, 1.1vw, 18px);
+            letter-spacing: 0.5px;
+        }
+        .offline-bar.show { display: flex; }
     </style>
 </head>
 <body>
@@ -556,6 +725,12 @@
         <button class="ctrl-btn" id="btnNext" title="Próximo">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
         </button>
+        <select class="ctrl-select" id="selLayout" title="Layout (neste aparelho)">
+            <option value="">Layout: automático</option>
+            <option value="DESTAQUE">Destaque</option>
+            <option value="GRADE">Grade</option>
+            <option value="ROTACAO">Rotação + banners</option>
+        </select>
         <select class="ctrl-select" id="selDuration" title="Tempo por produto">
             <option value="5000">5s</option>
             <option value="8000" selected>8s</option>
@@ -567,116 +742,219 @@
         </button>
     </div>
 
-    <script>
-        // API Base configuration:
-        // If served on port 8081, points API calls to port 8080.
-        // If served on port 8080, points API calls to origin.
-        // A porta da TV e a 8080 encaminham /api/* ao servidor principal,
-        // entao a propria origem funciona em qualquer porta configurada.
-        const API_HOST = window.location.origin;
+    <!-- Chamada de senha -->
+    <div class="call-overlay" id="callOverlay" aria-live="assertive">
+        <div class="call-label">PEDIDO PRONTO</div>
+        <div class="call-senha" id="callSenha">--</div>
+        <div class="call-sub">RETIRE NO BALCÃO</div>
+    </div>
+    <button class="voz-btn" id="btnVoz" title="O navegador exige um toque para liberar a voz">🔊 Toque para ativar a voz</button>
+    <div class="offline-bar" id="offlineBar">⚠ Sem conexão com o servidor — tentando reconectar automaticamente…</div>
 
-        // Escape de HTML para textos vindos do banco
+    <script>
+        // A porta da TV (8081) e a 8080 encaminham /api/* ao servidor principal:
+        // a propria origem funciona em qualquer porta configurada.
+        const API_HOST = window.location.origin;
+        const urlParams = new URLSearchParams(window.location.search);
+
         function esc(v) {
             return String(v === null || v === undefined ? '' : v)
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
+        function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+        function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-        let promoItems = [];
-        let currentIndex = 0;
-        let slideDuration = 8000;
+        // ------------------------------------------------------------------
+        // Estado
+        // ------------------------------------------------------------------
+        const settings = {          // padroes; sobrescritos por /api/company
+            tvLayout: 'DESTAQUE', tvDuracaoSeg: 8, tvGradeItens: 6, tvBannerACada: 3,
+            vozAtiva: true, vozRepeticoes: 2
+        };
+        let produtos = [];
+        let banners = [];
+        let slides = [];
+        let slideIndex = 0;
         let isPaused = false;
-        let slideTimer = null;
         let progressInterval = null;
         let progressStartTime = 0;
+        let bannerCursor = 0;
 
-        // --- Live Clock in Portuguese ---
+        const durOverride = lsGet('tvDurMs');
+        let slideDuration = durOverride ? parseInt(durOverride, 10) : settings.tvDuracaoSeg * 1000;
+        let temOverrideDuracao = !!durOverride;
+
+        function layoutEfetivo() {
+            const q = (urlParams.get('layout') || '').toUpperCase();
+            const local = lsGet('tvLayoutLocal');
+            const v = ['DESTAQUE', 'GRADE', 'ROTACAO'].includes(q) ? q : (['DESTAQUE', 'GRADE', 'ROTACAO'].includes(local) ? local : settings.tvLayout);
+            return v;
+        }
+
+        // ------------------------------------------------------------------
+        // Offline
+        // ------------------------------------------------------------------
+        let offline = false;
+        function setOffline(v) {
+            if (offline === v) return;
+            offline = v;
+            document.getElementById('offlineBar').classList.toggle('show', v);
+        }
+        async function apiGet(path) {
+            try {
+                const res = await fetch(API_HOST + path);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const j = await res.json();
+                setOffline(false);
+                return j;
+            } catch (e) {
+                setOffline(true);
+                throw e;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Relogio / formatacao
+        // ------------------------------------------------------------------
         function updateClock() {
             const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('clockTime').innerText = `${hours}:${minutes}:${seconds}`;
-
-            const options = { weekday: 'long', day: 'numeric', month: 'long' };
-            const dateStr = now.toLocaleDateString('pt-BR', options);
-            document.getElementById('clockDate').innerText = dateStr;
+            const p = (n) => String(n).padStart(2, '0');
+            document.getElementById('clockTime').innerText = `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+            document.getElementById('clockDate').innerText =
+                now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
         }
         setInterval(updateClock, 1000);
         updateClock();
 
-        // --- Currency Formatter (R$ 0,00) ---
         function formatMoney(val) {
-            return Number(val || 0).toLocaleString('pt-BR', {
-                style: 'currency',
-                currency: 'BRL',
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+            return Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        function formatPromoDate(dStr) {
+            if (!dStr) return '';
+            const parts = String(dStr).substring(0, 10).split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}` : dStr;
+        }
+        const imgUrl = (p, w) => `${API_HOST}/api/products/${p.id}/image?w=${w}&v=${encodeURIComponent(p.ultimaAlteracao || '')}`;
+
+        // ------------------------------------------------------------------
+        // Dados
+        // ------------------------------------------------------------------
+        async function loadSettings() {
+            try {
+                const j = await apiGet('/api/company');
+                if (j && j.success && j.data) {
+                    for (const k of Object.keys(settings)) if (j.data[k] !== undefined) settings[k] = j.data[k];
+                    if (!temOverrideDuracao) slideDuration = settings.tvDuracaoSeg * 1000;
+                    const dur = document.getElementById('selDuration');
+                    if (dur && !temOverrideDuracao) {
+                        const v = String(slideDuration);
+                        if (![...dur.options].some((o) => o.value === v)) dur.add(new Option(`${settings.tvDuracaoSeg}s`, v));
+                        dur.value = v;
+                    }
+                    const sel = document.getElementById('selLayout');
+                    if (sel) sel.value = lsGet('tvLayoutLocal') || '';
+                }
+            } catch (e) { /* mantem os padroes */ }
         }
 
-        // --- Fetch Promotional Products from Backend ---
+        async function loadBanners() {
+            try {
+                const j = await apiGet('/api/tv/banners');
+                if (j && j.success) banners = j.data || [];
+            } catch (e) { /* ignora */ }
+        }
+
         async function fetchPromotions() {
             try {
-                const res = await fetch(`${API_HOST}/api/tv/promotions`);
-                const data = await res.json();
-                if (data.success && Array.isArray(data.data)) {
-                    const newItems = data.data;
-                    const hadItems = promoItems.length > 0;
-                    promoItems = newItems;
-
-                    if (promoItems.length === 0) {
-                        renderStandby();
-                    } else {
-                        if (!hadItems || currentIndex >= promoItems.length) {
-                            currentIndex = 0;
-                            renderCurrentProduct();
-                            startProgress();
-                        }
-                    }
+                const j = await apiGet('/api/tv/promotions');
+                if (j && j.success && Array.isArray(j.data)) {
+                    const antes = JSON.stringify(produtos.map((p) => [p.id, p.precoPromocao, p.ultimaAlteracao]));
+                    produtos = j.data;
+                    const depois = JSON.stringify(produtos.map((p) => [p.id, p.precoPromocao, p.ultimaAlteracao]));
+                    if (antes !== depois) reconstruir();
+                    else if (!slides.length) reconstruir();
                 }
             } catch (err) {
-                console.error('Erro ao consultar promoções:', err);
-                if (promoItems.length === 0) {
-                    renderStandby('Tentando reconectar ao servidor...');
-                }
+                if (!slides.length) renderStandby('Tentando reconectar ao servidor...');
             }
         }
 
-        // --- Render Standby Screen when no promotions active ---
+        // ------------------------------------------------------------------
+        // Slides (DESTAQUE / GRADE / ROTACAO)
+        // ------------------------------------------------------------------
+        function proximoBanner() {
+            if (!banners.length) return null;
+            const b = banners[bannerCursor % banners.length];
+            bannerCursor++;
+            return { tipo: 'banner', url: API_HOST + b.url };
+        }
+
+        function reconstruir() {
+            const L = layoutEfetivo();
+            const lista = [];
+            bannerCursor = 0;
+
+            if (L === 'GRADE') {
+                const n = Math.max(2, settings.tvGradeItens);
+                for (let i = 0; i < produtos.length; i += n) lista.push({ tipo: 'grade', itens: produtos.slice(i, i + n) });
+            } else {
+                produtos.forEach((p, i) => {
+                    lista.push({ tipo: 'produto', p });
+                    if (L === 'ROTACAO' && banners.length && (i + 1) % Math.max(1, settings.tvBannerACada) === 0) {
+                        lista.push(proximoBanner());
+                    }
+                });
+                if (L === 'ROTACAO' && banners.length) {
+                    // garante ao menos um banner por volta (poucos produtos) ou so banners (sem promocoes)
+                    if (!lista.some((s) => s.tipo === 'banner')) lista.push(proximoBanner());
+                }
+            }
+            slides = lista;
+            if (slideIndex >= slides.length) slideIndex = 0;
+            if (!slides.length) { renderStandby(); return; }
+            renderSlide();
+            resetProgress();
+        }
+
         function renderStandby(msg) {
             const stage = document.getElementById('heroStage');
             stage.innerHTML = `
                 <div class="standby-box slide-in">
                     <svg class="standby-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     <h1 class="standby-title">DUSUCO • Em Breve Novas Ofertas!</h1>
-                    <p class="standby-subtitle">${msg || 'Todas as nossas promoções exclusivas serão apresentadas aqui em instantes. Fique atento às melhores oportunidades da loja!'}</p>
-                </div>
-            `;
+                    <p class="standby-subtitle">${esc(msg || 'Todas as nossas promoções exclusivas serão apresentadas aqui em instantes. Fique atento às melhores oportunidades da loja!')}</p>
+                </div>`;
             document.getElementById('counterBadge').innerText = 'DUSUCO OFERTAS';
             document.getElementById('progressFill').style.width = '0%';
         }
 
-        // --- Render Active Product Slide ---
-        function renderCurrentProduct() {
-            if (promoItems.length === 0) return;
-            const p = promoItems[currentIndex];
+        function renderSlide() {
+            const s = slides[slideIndex];
+            if (!s) return;
             const stage = document.getElementById('heroStage');
+            stage.classList.toggle('modo-grade', s.tipo === 'grade');
+            stage.classList.toggle('modo-banner', s.tipo === 'banner');
+            const total = slides.length;
+            const badge = document.getElementById('counterBadge');
 
-            const hasPhoto = p.temFoto;
-            const imageUrl = `${API_HOST}/api/products/${p.id}/image?w=1200&v=${encodeURIComponent(p.ultimaAlteracao || '')}`;
-            const precoVendaFormatado = formatMoney(p.precoVenda);
-            const precoPromFormatado = formatMoney(p.precoPromocao);
-            const economiaFormatada = formatMoney(p.economiaReais);
-
-            function formatPromoDate(dStr) {
-                if (!dStr) return '';
-                const parts = dStr.split('-');
-                if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
-                return dStr;
+            if (s.tipo === 'banner') {
+                stage.innerHTML = `<div class="banner-slide slide-in"><img src="${esc(s.url)}" alt="Banner" onerror="this.style.display='none'"></div>`;
+                badge.innerText = 'DUSUCO • DESTAQUE';
+            } else if (s.tipo === 'grade') {
+                stage.innerHTML = renderGrade(s.itens);
+                badge.innerText = `OFERTAS ${slideIndex + 1} DE ${total}`;
+            } else {
+                stage.innerHTML = renderProduto(s.p);
+                const prodSlides = slides.filter((x) => x.tipo === 'produto');
+                badge.innerText = `OFERTA ${prodSlides.indexOf(s) + 1} DE ${prodSlides.length}`;
             }
+        }
 
-            let promoDateBadge = '';
+        function renderProduto(p) {
+            const hasPhoto = p.temFoto;
+            let promoDateBadge;
             if (p.dtInicioProm && p.dtFimProm) {
                 promoDateBadge = `<span class="meta-pill" style="background: rgba(234, 88, 12, 0.18); border-color: rgba(234, 88, 12, 0.5); color: #FFA07A; font-weight: 700;">⏰ VÁLIDO DE ${formatPromoDate(p.dtInicioProm)} ATÉ ${formatPromoDate(p.dtFimProm)}</span>`;
             } else if (p.dtFimProm) {
@@ -684,25 +962,14 @@
             } else {
                 promoDateBadge = `<span class="meta-pill" style="background: rgba(16, 185, 129, 0.18); border-color: rgba(16, 185, 129, 0.5); color: #34D399; font-weight: 700;">✨ OFERTA POR TEMPO LIMITADO</span>`;
             }
-
-            stage.innerHTML = `
-                <!-- Left: Product Photo Showcase -->
+            const foto = hasPhoto
+                ? `<img src="${imgUrl(p, 1200)}" alt="${esc(p.descricao)}" class="product-img" onerror="this.onerror=null; this.replaceWith(Object.assign(document.createElement('div'), {className:'image-placeholder', textContent:'Foto do Produto'}))"/>`
+                : `<div class="image-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span style="font-size: 1.2vw; font-weight: 600;">DUSUCO • Sem Imagem</span></div>`;
+            return `
                 <div class="image-showcase slide-in">
-                    <div class="image-badge-discount">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 2C12.5 2 12.8 3.5 11.5 5C10.2 6.5 8 8.5 8 12C8 16.4 11.6 20 16 20C19.5 20 22 17.5 22 14C22 10.5 19 8.5 17.5 7C16 5.5 15.5 3.5 15.5 2C15.5 2 13.5 2 12.5 2Z"/></svg>
-                        <span>-${p.descontoPercentual}% OFF</span>
-                    </div>
-
-                    ${hasPhoto 
-                        ? `<img src="${imageUrl}" alt="${esc(p.descricao)}" class="product-img" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<div class=\\'image-placeholder\\'><svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.5\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\'/><circle cx=\\'8.5\\' cy=\\'8.5\\' r=\\'1.5\\'/><path d=\\'M21 15l-5-5L5 21\\'/></svg><span>Foto do Produto</span></div>'"/>`
-                        : `<div class="image-placeholder">
-                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                             <span style="font-size: 1.2vw; font-weight: 600;">DUSUCO • Sem Imagem</span>
-                           </div>`
-                    }
+                    <div class="image-badge-discount"><span>-${esc(p.descontoPercentual)}% OFF</span></div>
+                    ${foto}
                 </div>
-
-                <!-- Right: Product Name & Giant Price Callout -->
                 <div class="details-showcase slide-in">
                     <div class="meta-badges">
                         <span class="meta-pill">CÓD: ${esc(p.codigo || p.id)}</span>
@@ -710,101 +977,227 @@
                         <span class="meta-pill">UN: ${esc(p.unidade)}</span>
                         ${promoDateBadge}
                     </div>
-
                     <h1 class="product-title" title="${esc(p.descricao)}">${esc(p.descricao)}</h1>
-
-                    <!-- Price Card -->
                     <div class="price-card">
-                        <div class="price-row-old">
-                            <span class="price-label-old">DE:</span>
-                            <span class="price-val-old">${precoVendaFormatado}</span>
-                        </div>
-
-                        <div class="price-row-promo">
-                            <span class="price-label-promo">POR:</span>
-                            <span class="price-val-promo">${precoPromFormatado}</span>
-                        </div>
-
-                        ${p.economiaReais > 0 ? `
-                            <div>
-                                <div class="savings-badge">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                    VOCÊ ECONOMIZA: ${economiaFormatada}
-                                </div>
-                            </div>
-                        ` : ''}
+                        <div class="price-row-old"><span class="price-label-old">DE:</span><span class="price-val-old">${formatMoney(p.precoVenda)}</span></div>
+                        <div class="price-row-promo"><span class="price-label-promo">POR:</span><span class="price-val-promo">${formatMoney(p.precoPromocao)}</span></div>
+                        ${p.economiaReais > 0 ? `<div><div class="savings-badge">VOCÊ ECONOMIZA: ${formatMoney(p.economiaReais)}</div></div>` : ''}
                     </div>
-                </div>
-            `;
-
-            document.getElementById('counterBadge').innerText = `OFERTA ${currentIndex + 1} DE ${promoItems.length}`;
+                </div>`;
         }
 
-        // --- Next / Prev Navigation ---
+        function renderGrade(itens) {
+            const n = itens.length;
+            const cols = n <= 2 ? n : (n <= 4 ? 2 : (n <= 6 ? 3 : (n <= 9 ? 3 : 4)));
+            const rows = Math.ceil(n / cols);
+            const cards = itens.map((p) => `
+                <div class="grade-card slide-in">
+                    <div class="grade-img">
+                        ${p.temFoto ? `<img src="${imgUrl(p, 400)}" alt="" onerror="this.style.display='none'">` : '<span class="grade-sem-foto">Sem foto</span>'}
+                        <span class="grade-off">-${esc(p.descontoPercentual)}%</span>
+                    </div>
+                    <div class="grade-info">
+                        <div class="grade-name">${esc(p.descricao)}</div>
+                        <div class="grade-prices">
+                            <span class="grade-de">${formatMoney(p.precoVenda)}</span>
+                            <span class="grade-por">${formatMoney(p.precoPromocao)}</span>
+                        </div>
+                    </div>
+                </div>`).join('');
+            return `<div class="grade" style="--cols:${cols}; --rows:${rows};">${cards}</div>`;
+        }
+
+        // ------------------------------------------------------------------
+        // Navegacao / progresso
+        // ------------------------------------------------------------------
         function nextSlide() {
-            if (promoItems.length <= 1) return;
-            currentIndex = (currentIndex + 1) % promoItems.length;
-            renderCurrentProduct();
+            if (slides.length <= 1) return;
+            slideIndex = (slideIndex + 1) % slides.length;
+            renderSlide();
             resetProgress();
         }
-
         function prevSlide() {
-            if (promoItems.length <= 1) return;
-            currentIndex = (currentIndex - 1 + promoItems.length) % promoItems.length;
-            renderCurrentProduct();
+            if (slides.length <= 1) return;
+            slideIndex = (slideIndex - 1 + slides.length) % slides.length;
+            renderSlide();
             resetProgress();
         }
-
-        // --- Progress Bar & Autoplay ---
         function startProgress() {
             if (isPaused) return;
             clearInterval(progressInterval);
-            clearTimeout(slideTimer);
-
             progressStartTime = Date.now();
             const fill = document.getElementById('progressFill');
-
             progressInterval = setInterval(() => {
                 if (isPaused) return;
                 const elapsed = Date.now() - progressStartTime;
-                const pct = Math.min(100, (elapsed / slideDuration) * 100);
-                fill.style.width = `${pct}%`;
-
+                fill.style.width = `${Math.min(100, (elapsed / slideDuration) * 100)}%`;
                 if (elapsed >= slideDuration) {
                     clearInterval(progressInterval);
-                    nextSlide();
+                    if (slides.length > 1) nextSlide(); else resetProgress();
                 }
             }, 60);
         }
-
         function resetProgress() {
             document.getElementById('progressFill').style.width = '0%';
             startProgress();
         }
-
         function togglePlayPause() {
             isPaused = !isPaused;
             document.getElementById('iconPause').style.display = isPaused ? 'none' : 'block';
             document.getElementById('iconPlay').style.display = isPaused ? 'block' : 'none';
-            if (!isPaused) {
-                startProgress();
-            }
+            if (!isPaused) startProgress();
         }
-
-        // --- Fullscreen Toggle ---
         function toggleFullscreen() {
             if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.warn('Erro ao entrar em fullscreen:', err);
-                });
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                }
+                document.documentElement.requestFullscreen().catch((e) => console.warn('fullscreen:', e));
+            } else if (document.exitFullscreen) {
+                document.exitFullscreen();
             }
         }
 
-        // --- Event Listeners ---
+        // ------------------------------------------------------------------
+        // Chamada de senha (voz + painel na tela)
+        // ------------------------------------------------------------------
+        const announced = new Set();
+        try { JSON.parse(sessionStorage.getItem('tvAnnounced') || '[]').forEach((k) => announced.add(k)); } catch (e) {}
+        function salvarAnunciados() {
+            try { sessionStorage.setItem('tvAnnounced', JSON.stringify([...announced].slice(-300))); } catch (e) {}
+        }
+        let primeiraVarredura = true;
+        const filaChamadas = [];
+        let chamando = false;
+
+        function userActivated() {
+            return !!(navigator.userActivation && navigator.userActivation.hasBeenActive);
+        }
+        function atualizarBotaoVoz() {
+            const b = document.getElementById('btnVoz');
+            const precisa = settings.vozAtiva && !userActivated();
+            b.classList.toggle('show', precisa);
+        }
+
+        let vozPt = null;
+        function escolherVoz() {
+            if (!window.speechSynthesis) return;
+            const vs = speechSynthesis.getVoices();
+            vozPt = vs.find((v) => v.lang && v.lang.toLowerCase() === 'pt-br') || vs.find((v) => v.lang && v.lang.toLowerCase().startsWith('pt')) || null;
+        }
+        if (window.speechSynthesis) {
+            escolherVoz();
+            speechSynthesis.addEventListener('voiceschanged', escolherVoz);
+        }
+
+        function falar(texto) {
+            return new Promise((resolve) => {
+                if (!window.speechSynthesis) return resolve();
+                try {
+                    const u = new SpeechSynthesisUtterance(texto);
+                    u.lang = 'pt-BR';
+                    if (vozPt) u.voice = vozPt;
+                    u.rate = 0.9;
+                    u.pitch = 1;
+                    u.volume = 1;
+                    let feito = false;
+                    const fim = () => { if (!feito) { feito = true; resolve(); } };
+                    u.onend = fim;
+                    u.onerror = fim;
+                    setTimeout(fim, 9000); // seguranca: nunca trava a fila
+                    speechSynthesis.speak(u);
+                } catch (e) { resolve(); }
+            });
+        }
+
+        function campainha() {
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                const ctx = new AC();
+                [[880, 0], [1174.66, 0.2]].forEach(([freq, t]) => {
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    o.type = 'sine';
+                    o.frequency.setValueAtTime(freq, ctx.currentTime + t);
+                    g.gain.setValueAtTime(0.3, ctx.currentTime + t);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.9);
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(ctx.currentTime + t);
+                    o.stop(ctx.currentTime + t + 0.9);
+                });
+            } catch (e) { /* sem audio */ }
+        }
+
+        function textoFalado(o) {
+            const senha = String(o.senha || '').trim();
+            const numero = /^\d+$/.test(senha) ? String(Number(senha)) : senha.split('').join(' ');
+            return `Senha ${numero}, pedido pronto.`;
+        }
+
+        async function executarChamada(o) {
+            const ov = document.getElementById('callOverlay');
+            document.getElementById('callSenha').innerText = o.senha;
+            ov.classList.add('show');
+            campainha();
+            await sleep(700);
+            const reps = Math.max(1, Math.min(3, settings.vozRepeticoes || 1));
+            const inicio = Date.now();
+            for (let i = 0; i < reps; i++) {
+                await falar(textoFalado(o));
+                if (i < reps - 1) await sleep(700);
+            }
+            // mantem a senha visivel por pelo menos 7 segundos mesmo sem audio
+            const restante = 7000 - (Date.now() - inicio);
+            if (restante > 0) await sleep(restante);
+            ov.classList.remove('show');
+            await sleep(400);
+        }
+
+        async function processarFila() {
+            if (chamando) return;
+            chamando = true;
+            try {
+                while (filaChamadas.length) await executarChamada(filaChamadas.shift());
+            } finally { chamando = false; }
+        }
+
+        async function verificarChamadas() {
+            if (!settings.vozAtiva) return;
+            let lista;
+            try {
+                const j = await apiGet('/api/orders?filter=PRONTOS&limit=30');
+                lista = j && j.success ? j.data : null;
+            } catch (e) { return; }
+            if (!Array.isArray(lista)) return;
+
+            const agora = Date.now();
+            const novos = [];
+            for (const o of lista) {
+                if (o.estado !== 'PRONTO') continue;
+                const chave = `${o.id}|${o.dtPronto}`;
+                if (announced.has(chave)) continue;
+                announced.add(chave);
+                if (primeiraVarredura) continue; // nao anuncia o que ja estava pronto ao abrir a TV
+                const t = Date.parse(String(o.dtPronto).replace(' ', 'T'));
+                if (isFinite(t) && agora - t > 15 * 60000) continue; // pronto ha muito tempo
+                novos.push({ ...o, _t: isFinite(t) ? t : agora });
+            }
+            primeiraVarredura = false;
+            salvarAnunciados();
+            novos.sort((a, b) => a._t - b._t).forEach((o) => filaChamadas.push(o));
+            if (filaChamadas.length) processarFila();
+        }
+
+        document.getElementById('btnVoz').addEventListener('click', () => {
+            // o clique conta como ativacao do usuario: libera audio e voz
+            falar('Voz ativada.');
+            campainha();
+            setTimeout(atualizarBotaoVoz, 200);
+        });
+        document.addEventListener('pointerdown', () => setTimeout(atualizarBotaoVoz, 100), { passive: true });
+        document.addEventListener('keydown', () => setTimeout(atualizarBotaoVoz, 100));
+
+        // ------------------------------------------------------------------
+        // Controles
+        // ------------------------------------------------------------------
         document.getElementById('btnNext').addEventListener('click', nextSlide);
         document.getElementById('btnPrev').addEventListener('click', prevSlide);
         document.getElementById('btnPlayPause').addEventListener('click', togglePlayPause);
@@ -812,36 +1205,58 @@
 
         document.getElementById('selDuration').addEventListener('change', (e) => {
             slideDuration = parseInt(e.target.value, 10) || 8000;
+            temOverrideDuracao = true;
+            lsSet('tvDurMs', String(slideDuration));
             resetProgress();
         });
-
-        // Keyboard navigation (useful for TV remotes / presentation clickers)
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowRight' || e.key === ' ') {
-                nextSlide();
-            } else if (e.key === 'ArrowLeft') {
-                prevSlide();
-            } else if (e.key === 'f' || e.key === 'F') {
-                toggleFullscreen();
-            }
+        document.getElementById('selLayout').addEventListener('change', (e) => {
+            if (e.target.value) lsSet('tvLayoutLocal', e.target.value);
+            else { try { localStorage.removeItem('tvLayoutLocal'); } catch (err) {} }
+            slideIndex = 0;
+            reconstruir();
         });
 
-        // Tempo real: o servidor avisa (SSE) quando uma promocao muda
-        let promoTimer = null;
-        function agendarPromocoes() {
-            if (promoTimer) return;
-            promoTimer = setTimeout(() => { promoTimer = null; fetchPromotions(); }, 500);
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+            else if (e.key === 'ArrowLeft') prevSlide();
+            else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+        });
+
+        // ------------------------------------------------------------------
+        // Inicializacao e tempo real
+        // ------------------------------------------------------------------
+        async function carregarTudo() {
+            await Promise.all([loadSettings(), loadBanners()]);
+            await fetchPromotions();
+            reconstruir();
+            atualizarBotaoVoz();
         }
+
+        let recarga = null;
+        function agendarRecarga() {
+            if (recarga) return;
+            recarga = setTimeout(async () => { recarga = null; await carregarTudo(); }, 500);
+        }
+        let chamadasTimer = null;
+        function agendarChamadas() {
+            if (chamadasTimer) return;
+            chamadasTimer = setTimeout(() => { chamadasTimer = null; verificarChamadas(); }, 250);
+        }
+
         if (window.EventSource) {
             const es = new EventSource(`${API_HOST}/api/events`);
-            es.addEventListener('products', agendarPromocoes);
+            es.addEventListener('products', agendarRecarga);   // promocoes, banners e configuracoes
+            es.addEventListener('orders', agendarChamadas);    // pedido pronto -> chamada de senha
+            es.addEventListener('hello', () => { setOffline(false); agendarChamadas(); });
+            es.onerror = () => setOffline(true);
         }
 
-        // Initial Load
-        fetchPromotions();
+        // Redes de seguranca (conexao de eventos caida / virada de dia)
+        setInterval(fetchPromotions, 5 * 60000);
+        setInterval(verificarChamadas, 10000);
+        setInterval(() => { if (offline) carregarTudo(); }, 5000);
 
-        // Rede de seguranca: reconsulta a cada 5 min (cobre virada de dia e conexao de eventos caida)
-        setInterval(fetchPromotions, 300000);
+        carregarTudo().then(() => verificarChamadas());
     </script>
 </body>
 </html>

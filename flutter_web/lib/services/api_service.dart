@@ -1,5 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/product.dart';
 import '../models/sales_record.dart';
@@ -7,7 +8,51 @@ import '../models/audit_entry.dart';
 import '../models/dashboard_stats.dart';
 import '../models/promotion_item.dart';
 
+/// Conflito ao agendar uma promoção (HTTP 409): já existe promoção no período.
+class ScheduleConflict implements Exception {
+  final String message;
+  final String produto;
+  final List<Map<String, dynamic>> conflitos;
+
+  ScheduleConflict(this.message, this.produto, this.conflitos);
+
+  @override
+  String toString() => message;
+}
+
+/// Cliente HTTP que informa [ApiService.online]: qualquer resposta (mesmo 4xx/5xx) = servidor alcançável;
+/// falha de rede/timeout = offline (a tela "servidor offline" assume e tenta reconectar).
+class _TrackingClient extends http.BaseClient {
+  final http.Client _inner = http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    try {
+      final response = await _inner.send(request).timeout(const Duration(seconds: 30));
+      ApiService.online.value = true;
+      return response;
+    } on TimeoutException {
+      ApiService.online.value = false;
+      throw Exception('O servidor não respondeu a tempo');
+    } catch (_) {
+      ApiService.online.value = false;
+      throw Exception('Sem conexão com o servidor');
+    }
+  }
+}
+
 class ApiService {
+  /// false quando o servidor não é alcançado.
+  static final ValueNotifier<bool> online = ValueNotifier<bool>(true);
+
+  /// false quando o servidor responde mas o banco Firebird está indisponível.
+  static final ValueNotifier<bool> dbOk = ValueNotifier<bool>(true);
+
+  /// Incrementa quando a conexão volta: as telas recarregam os dados.
+  static final ValueNotifier<int> reconnected = ValueNotifier<int>(0);
+
+  static final http.Client _client = _TrackingClient();
+
   // Em producao o app e servido pela propria API (porta 8080): usa o mesmo host,
   // assim funciona em outros PCs da rede. Em 'flutter run' cai para o host atual:8080.
   static String baseUrl = _resolveBaseUrl();
@@ -46,7 +91,7 @@ class ApiService {
   }
 
   static Future<DashboardStats> getStats() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/stats'));
+    final response = await _client.get(Uri.parse('$baseUrl/api/stats'));
     if (response.statusCode == 200) {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
       if (json['success'] == true) {
@@ -76,7 +121,7 @@ class ApiService {
     };
 
     final uri = Uri.parse('$baseUrl/api/products').replace(queryParameters: queryParams);
-    final response = await http.get(uri);
+    final response = await _client.get(uri);
 
     if (response.statusCode == 200) {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
@@ -95,7 +140,7 @@ class ApiService {
   }
 
   static Future<Product> getProduct(int id) async {
-    final response = await http.get(Uri.parse('$baseUrl/api/products/$id'));
+    final response = await _client.get(Uri.parse('$baseUrl/api/products/$id'));
     if (response.statusCode == 200) {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
       if (json['success'] == true) {
@@ -106,7 +151,7 @@ class ApiService {
   }
 
   static Future<Product> updateStatus(int id, String status) async {
-    final response = await http.put(
+    final response = await _client.put(
       Uri.parse('$baseUrl/api/products/$id/status'),
       headers: _jsonHeaders,
       body: jsonEncode({'status': status}),
@@ -122,7 +167,7 @@ class ApiService {
   }
 
   static Future<Product> updatePrice(int id, double precoVenda, [double? precoMinimo]) async {
-    final response = await http.put(
+    final response = await _client.put(
       Uri.parse('$baseUrl/api/products/$id/price'),
       headers: _jsonHeaders,
       body: jsonEncode({
@@ -147,7 +192,7 @@ class ApiService {
     String? dtFim,
     String tipoValor = 'V',
   }) async {
-    final response = await http.put(
+    final response = await _client.put(
       Uri.parse('$baseUrl/api/products/$id/promotion'),
       headers: _jsonHeaders,
       body: jsonEncode({
@@ -169,7 +214,7 @@ class ApiService {
   }
 
   static Future<Product> updateFields(int id, Map<String, dynamic> fields) async {
-    final response = await http.put(
+    final response = await _client.put(
       Uri.parse('$baseUrl/api/products/$id/fields'),
       headers: _jsonHeaders,
       body: jsonEncode(fields),
@@ -185,7 +230,7 @@ class ApiService {
   }
 
   static Future<Product> updateStock(int id, double estoque, [String? motivo]) async {
-    final response = await http.put(
+    final response = await _client.put(
       Uri.parse('$baseUrl/api/products/$id/stock'),
       headers: _jsonHeaders,
       body: jsonEncode({
@@ -204,7 +249,7 @@ class ApiService {
   }
 
   static Future<Product> quickEditProduct(int id, Map<String, dynamic> data) async {
-    final response = await http.put(
+    final response = await _client.put(
       Uri.parse('$baseUrl/api/products/$id/quick-edit'),
       headers: _jsonHeaders,
       body: jsonEncode(data),
@@ -223,7 +268,7 @@ class ApiService {
   static Future<PromotionsData> getPromotions({String estado = 'TODAS', int dias = 3}) async {
     final uri = Uri.parse('$baseUrl/api/promotions')
         .replace(queryParameters: {'estado': estado, 'dias': dias.toString()});
-    final response = await http.get(uri);
+    final response = await _client.get(uri);
     if (response.statusCode == 200) {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
       if (json['success'] == true) {
@@ -240,7 +285,7 @@ class ApiService {
     required String acao,
     Map<String, dynamic> params = const {},
   }) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/api/products/batch'),
       headers: _jsonHeaders,
       body: jsonEncode({'ids': ids, 'acao': acao, 'params': params}),
@@ -254,6 +299,73 @@ class ApiService {
     throw _error(response, 'Falha na edição em lote');
   }
 
+  /// Verifica servidor + banco e atualiza [online] / [dbOk]. Usado pela tela de reconexão.
+  static Future<bool> checkHealth() async {
+    try {
+      final response = await _client.get(Uri.parse('$baseUrl/api/health')).timeout(const Duration(seconds: 6));
+      final ok = response.statusCode == 200;
+      dbOk.value = ok;
+      return ok;
+    } catch (_) {
+      // _TrackingClient já marcou online = false
+      return false;
+    }
+  }
+
+  /// Agenda uma promoção futura. Lança [ScheduleConflict] se houver conflito e [forcar] for false.
+  static Future<Map<String, dynamic>> schedulePromotion({
+    required int produtoId,
+    double? percentual,
+    double? precoPromocao,
+    required String dtInicio,
+    String? dtFim,
+    bool forcar = false,
+  }) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/api/promotions/schedule'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'produtoId': produtoId,
+        'percentual': ?percentual,
+        'precoPromocao': ?precoPromocao,
+        'dtInicio': dtInicio,
+        'dtFim': ?dtFim,
+        'forcar': forcar,
+      }),
+    );
+    final json = jsonDecode(utf8.decode(response.bodyBytes));
+    if (response.statusCode == 200 && json['success'] == true) {
+      return (json['data'] as Map).cast<String, dynamic>();
+    }
+    if (response.statusCode == 409 && json is Map && json['codigo'] == 'CONFLITO') {
+      final det = (json['detalhes'] as Map?) ?? {};
+      final prod = (det['produto'] as Map?)?['descricao']?.toString() ?? 'Produto';
+      final lista = ((det['conflitos'] as List?) ?? [])
+          .map((e) => (e as Map).cast<String, dynamic>())
+          .toList();
+      throw ScheduleConflict(json['error']?.toString() ?? 'Conflito de promoção', prod, lista);
+    }
+    throw _error(response, 'Falha ao agendar promoção');
+  }
+
+  static Future<List<AgendaItem>> getAgenda() async {
+    final response = await _client.get(Uri.parse('$baseUrl/api/promotions/agenda'));
+    if (response.statusCode == 200) {
+      final json = jsonDecode(utf8.decode(response.bodyBytes));
+      if (json['success'] == true) {
+        final List raw = json['data'] ?? [];
+        return raw.map((e) => AgendaItem.fromJson((e as Map).cast<String, dynamic>())).toList();
+      }
+    }
+    throw _error(response, 'Falha ao carregar a agenda');
+  }
+
+  static Future<void> cancelAgenda(String id) async {
+    final response = await _client.delete(Uri.parse('$baseUrl/api/promotions/agenda/$id'), headers: _jsonHeaders);
+    if (response.statusCode == 200) return;
+    throw _error(response, 'Falha ao cancelar o agendamento');
+  }
+
   static Future<bool> uploadImage(int id, Uint8List imageBytes, String filename) async {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/products/$id/image'));
     if (_apiToken.isNotEmpty) request.headers['x-api-token'] = _apiToken;
@@ -263,7 +375,7 @@ class ApiService {
       filename: filename,
     ));
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200) {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
@@ -273,7 +385,7 @@ class ApiService {
   }
 
   static Future<List<SalesRecord>> getSalesHistory(int id) async {
-    final response = await http.get(Uri.parse('$baseUrl/api/products/$id/sales'));
+    final response = await _client.get(Uri.parse('$baseUrl/api/products/$id/sales'));
     if (response.statusCode == 200) {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
       if (json['success'] == true) {
@@ -285,7 +397,7 @@ class ApiService {
   }
 
   static Future<List<AuditEntry>> getAuditHistory() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/audit'));
+    final response = await _client.get(Uri.parse('$baseUrl/api/audit'));
     if (response.statusCode == 200) {
       final json = jsonDecode(utf8.decode(response.bodyBytes));
       if (json['success'] == true) {

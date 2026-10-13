@@ -85,7 +85,8 @@ const ymd = (off) => { const d = new Date(); d.setDate(d.getDate() + off); retur
   const full = await fetch(B + '/api/products/900101/image'); const fullBuf = Buffer.from(await full.arrayBuffer());
   const th = await fetch(B + '/api/products/900101/image?w=240'); const thBuf = Buffer.from(await th.arrayBuffer());
   const meta = await sharp(thBuf).metadata();
-  ok('imagem original servida', full.status === 200 && fullBuf.length === jpg.length, `${fullBuf.length}B`);
+  const metaFull = await sharp(fullBuf).metadata();
+  ok('imagem original servida (reencodada pelo servidor, até 1600 px)', full.status === 200 && metaFull.width === 1600 && fullBuf.length <= jpg.length, `${metaFull.width}px ${fullBuf.length}B (enviado ${jpg.length}B)`);
   ok('miniatura 240px menor que original', th.status === 200 && meta.width === 240 && thBuf.length < fullBuf.length / 5, `${meta.width}px ${thBuf.length}B vs ${fullBuf.length}B`);
 
   // blob realmente gravado no banco (apaga o cache e le de novo)
@@ -94,7 +95,7 @@ const ymd = (off) => { const d = new Date(); d.setDate(d.getDate() + off); retur
   for (const n of fs.readdirSync(cache)) if (n.startsWith('prd_900101')) fs.unlinkSync(path.join(cache, n));
   await db.execute("UPDATE TB_PRODUTO SET PRD_FOTO = NULL WHERE PRD_ID = 900101");
   const again = await fetch(B + '/api/products/900101/image'); const againBuf = Buffer.from(await again.arrayBuffer());
-  ok('BLOB persistido no banco (reler sem cache)', again.status === 200 && againBuf.equals(jpg), `${againBuf.length}B`);
+  ok('BLOB persistido no banco (reler sem cache)', again.status === 200 && againBuf.equals(fullBuf), `${againBuf.length}B`);
   for (const n of fs.readdirSync(cache)) if (n.startsWith('prd_900101')) fs.unlinkSync(path.join(cache, n));
 
   // --- mudanca externa (simula o PDV) -> evento orders ---

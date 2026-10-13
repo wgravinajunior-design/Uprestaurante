@@ -4,6 +4,7 @@ import '../models/product.dart';
 import '../models/sales_record.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/image_picker_web.dart';
 
 class ProductEditDialog extends StatefulWidget {
   final Product product;
@@ -43,6 +44,7 @@ class _ProductEditDialogState extends State<ProductEditDialog> with SingleTicker
   bool _isLoadingSales = false;
 
   bool _isSaving = false;
+  bool _enviandoFoto = false;
   String? _errorMessage;
 
   final currencyFormat = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
@@ -111,6 +113,61 @@ class _ProductEditDialogState extends State<ProductEditDialog> with SingleTicker
     } finally {
       if (mounted) setState(() => _isLoadingSales = false);
     }
+  }
+
+  /// Troca a foto do produto: câmera (celular) ou arquivo. O servidor reduz para até 1600 px.
+  Future<void> _trocarFoto({required bool camera}) async {
+    if (_enviandoFoto) return;
+    try {
+      final img = await pickImage(camera: camera);
+      if (img == null || !mounted) return;
+      setState(() {
+        _enviandoFoto = true;
+        _errorMessage = null;
+      });
+      final ok = await ApiService.uploadImage(_currentProduct.id, img.bytes, img.name);
+      if (!ok) throw Exception('O servidor não aceitou a imagem');
+      final atualizado = await ApiService.getProduct(_currentProduct.id);
+      widget.onUpdated(atualizado);
+      if (!mounted) return;
+      setState(() => _currentProduct = atualizado);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(backgroundColor: AppTheme.success, content: Text('Foto atualizada no ERP!')),
+      );
+    } catch (e) {
+      if (mounted) setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _enviandoFoto = false);
+    }
+  }
+
+  Widget _buildPhotoButtons() {
+    if (_enviandoFoto) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.primary)),
+      );
+    }
+    return Column(
+      children: [
+        SizedBox(
+          width: 140,
+          child: OutlinedButton.icon(
+            onPressed: () => _trocarFoto(camera: true),
+            icon: const Icon(Icons.photo_camera_outlined, size: 16),
+            label: const Text('Tirar foto', style: TextStyle(fontSize: 12)),
+          ),
+        ),
+        SizedBox(
+          width: 140,
+          child: TextButton.icon(
+            onPressed: () => _trocarFoto(camera: false),
+            icon: const Icon(Icons.upload_file, size: 16),
+            label: const Text('Escolher arquivo', style: TextStyle(fontSize: 12)),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _saveDadosCadastrais() async {
@@ -367,6 +424,7 @@ class _ProductEditDialogState extends State<ProductEditDialog> with SingleTicker
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Photo Box
+              Column(children: [
               Container(
                 width: 140,
                 height: 140,
@@ -384,6 +442,9 @@ class _ProductEditDialogState extends State<ProductEditDialog> with SingleTicker
                       )
                     : const Icon(Icons.inventory_2, size: 40, color: AppTheme.textMuted),
               ),
+              const SizedBox(height: 8),
+              _buildPhotoButtons(),
+              ]),
               const SizedBox(width: 20),
               // Fields
               Expanded(

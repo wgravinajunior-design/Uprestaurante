@@ -53,12 +53,19 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadInitialData();
+    ApiService.reconnected.addListener(_onReconnected);
   }
 
   @override
   void dispose() {
+    ApiService.reconnected.removeListener(_onReconnected);
     _searchController.dispose();
     super.dispose();
+  }
+
+  // A conexão voltou (tela "servidor offline" encerrada): recarrega tudo
+  void _onReconnected() {
+    if (mounted) _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {

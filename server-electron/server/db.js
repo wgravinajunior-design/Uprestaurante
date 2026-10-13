@@ -18,7 +18,7 @@ const DB_USER = process.env.FB_USER || fileCfg.user || 'SYSDBA';
 const DB_PASS = process.env.FB_PASSWORD || fileCfg.password || 'masterkey';
 const DB_POOL = parseInt(process.env.FB_POOL || fileCfg.pool || '5', 10);
 
-const cacheDir = path.join(__dirname, '..', 'cache');
+const cacheDir = process.env.CACHE_DIR || path.join(__dirname, '..', 'cache');
 if (!fs.existsSync(cacheDir)) {
     fs.mkdirSync(cacheDir, { recursive: true });
 }
