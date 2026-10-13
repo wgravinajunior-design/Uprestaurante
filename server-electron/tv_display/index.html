@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DUSUCO - Vitrine de Promoções na TV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #060913;
+            --bg-surface: rgba(15, 23, 42, 0.75);
+            --border: rgba(255, 255, 255, 0.1);
+            --primary: #FF5500;
+            --primary-glow: rgba(255, 85, 0, 0.45);
+            --accent-gold: #FBBF24;
+            --accent-gold-glow: rgba(251, 191, 36, 0.4);
+            --green: #10B981;
+            --text-main: #FFFFFF;
+            --text-muted: #94A3B8;
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: var(--font-body);
+        }
+
+        /* Ambient Lighting Background */
+        .ambient-glow {
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 70vw;
+            height: 70vh;
+            background: radial-gradient(circle, rgba(234, 88, 12, 0.25) 0%, rgba(6, 9, 19, 0) 70%);
+            filter: blur(80px);
+            z-index: 0;
+            pointer-events: none;
+            transition: all 1.5s ease;
+        }
+
+        .ambient-glow-2 {
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 60vw;
+            height: 60vh;
+            background: radial-gradient(circle, rgba(251, 191, 36, 0.18) 0%, rgba(6, 9, 19, 0) 70%);
+            filter: blur(90px);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .tv-container {
+            position: relative;
+            z-index: 1;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 2.5vh 3.5vw 2vh 3.5vw;
+        }
+
+        /* --- Header Section --- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 10vh;
+            margin-bottom: 2vh;
+        }
+
+        .brand-area {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .logo-dusuco {
+            background: linear-gradient(135deg, #FF6B00 0%, #EA580C 100%);
+            color: #FFFFFF;
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: clamp(20px, 2.2vw, 36px);
+            letter-spacing: 2px;
+            padding: 10px 22px;
+            border-radius: 14px;
+            box-shadow: 0 8px 28px var(--primary-glow);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .promo-tag-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(234, 88, 12, 0.15);
+            border: 1px solid rgba(234, 88, 12, 0.4);
+            padding: 8px 18px;
+            border-radius: 999px;
+            color: #FFA07A;
+            font-size: clamp(12px, 1.1vw, 17px);
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #EA580C;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #EA580C;
+            animation: pulse-dot 1.5s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(0.9); opacity: 0.7; }
+            50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 18px #FF5500; }
+            100% { transform: scale(0.9); opacity: 0.7; }
+        }
+
+        .clock-area {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            font-family: var(--font-display);
+        }
+
+        .clock-time {
+            font-size: clamp(24px, 2.6vw, 44px);
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #FFFFFF;
+        }
+
+        .clock-date {
+            font-size: clamp(12px, 1.1vw, 17px);
+            color: var(--text-muted);
+            text-transform: capitalize;
+            font-weight: 500;
+        }
+
+        /* --- Main Hero Content --- */
+        .hero-stage {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 4vw;
+            align-items: center;
+            min-height: 0;
+            position: relative;
+        }
+
+        /* Product Image Box */
+        .image-showcase {
+            height: 100%;
+            max-height: 68vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.4) 100%);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 3vw;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 40px rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            overflow: hidden;
+        }
+
+        .image-badge-discount {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            background: linear-gradient(135deg, #FF1E00, #EA580C);
+            color: #FFFFFF;
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: clamp(18px, 2vw, 32px);
+            letter-spacing: 0.5px;
+            padding: 10px 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(234, 88, 12, 0.6);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: bounce-subtle 3s infinite ease-in-out;
+            z-index: 2;
+        }
+
+        @keyframes bounce-subtle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .product-img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            border-radius: 16px;
+            filter: drop-shadow(0 15px 35px rgba(0,0,0,0.6));
+            transition: opacity 0.6s ease, transform 8s ease-out;
+            animation: kenburns 8s infinite alternate;
+        }
+
+        @keyframes kenburns {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.06); }
+        }
+
+        .image-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 16px;
+        }
+
+        .image-placeholder svg {
+            width: 120px;
+            height: 120px;
+            opacity: 0.35;
+        }
+
+        /* Product Details Info Box */
+        .details-showcase {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2.2vh;
+            padding-right: 2vw;
+        }
+
+        .meta-badges {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .meta-pill {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: clamp(12px, 1.05vw, 16px);
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .product-title {
+            font-family: var(--font-display);
+            font-size: clamp(28px, 3.6vw, 62px);
+            font-weight: 900;
+            line-height: 1.12;
+            color: #FFFFFF;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-shadow: 0 4px 16px rgba(0,0,0,0.5);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* --- Price Presentation Area --- */
+        .price-card {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 24px;
+            padding: 2.5vh 2.5vw;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .price-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #FF6B00, #FBBF24, #10B981);
+        }
+
+        .price-row-old {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 0.5vh;
+        }
+
+        .price-label-old {
+            font-size: clamp(14px, 1.3vw, 22px);
+            font-weight: 700;
+            color: #94A3B8;
+            letter-spacing: 1px;
+        }
+
+        .price-val-old {
+            font-family: var(--font-display);
+            font-size: clamp(22px, 2.5vw, 42px);
+            font-weight: 700;
+            color: #EF4444;
+            text-decoration: line-through;
+            text-decoration-thickness: 3px;
+            opacity: 0.85;
+        }
+
+        .price-row-promo {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .price-label-promo {
+            font-family: var(--font-display);
+            font-size: clamp(20px, 2.2vw, 36px);
+            font-weight: 900;
+            color: #FFFFFF;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .price-val-promo {
+            font-family: var(--font-display);
+            font-size: clamp(48px, 6.2vw, 100px);
+            font-weight: 900;
+            line-height: 1;
+            color: var(--accent-gold);
+            text-shadow: 0 0 35px var(--accent-gold-glow), 0 4px 10px rgba(0,0,0,0.5);
+            letter-spacing: -1px;
+        }
+
+        .savings-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #34D399;
+            padding: 8px 18px;
+            border-radius: 12px;
+            font-size: clamp(13px, 1.2vw, 20px);
+            font-weight: 800;
+            margin-top: 1vh;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- Footer & Progress Bar --- */
+        .footer-bar {
+            height: 6vh;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            margin-top: 1vh;
+        }
+
+        .progress-track {
+            flex: 1;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #EA580C, #FBBF24);
+            box-shadow: 0 0 14px var(--primary-glow);
+            border-radius: 999px;
+            transition: width 0.1s linear;
+        }
+
+        .counter-badge {
+            font-family: var(--font-display);
+            font-size: clamp(13px, 1.1vw, 18px);
+            font-weight: 700;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        /* --- Standby / Empty State --- */
+        .standby-box {
+            grid-column: span 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            height: 60vh;
+            gap: 20px;
+        }
+
+        .standby-icon {
+            width: 90px;
+            height: 90px;
+            color: #EA580C;
+            animation: pulse-dot 2s infinite;
+        }
+
+        .standby-title {
+            font-family: var(--font-display);
+            font-size: clamp(32px, 3.8vw, 60px);
+            font-weight: 900;
+            color: #FFFFFF;
+        }
+
+        .standby-subtitle {
+            font-size: clamp(16px, 1.4vw, 24px);
+            color: var(--text-muted);
+            max-width: 600px;
+        }
+
+        /* --- Discreet Floating Controls (Auto-hide on idle) --- */
+        .tv-controls {
+            position: fixed;
+            bottom: 24px;
+            right: 32px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            z-index: 99;
+        }
+
+        body:hover .tv-controls {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .ctrl-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 6px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent-gold);
+        }
+
+        .ctrl-select {
+            background: rgba(0, 0, 0, 0.5);
+            color: #FFFFFF;
+            border: 1px solid var(--border);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        /* Animation class for slide change */
+        .slide-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient glow effects -->
+    <div class="ambient-glow" id="ambientGlow"></div>
+    <div class="ambient-glow-2"></div>
+
+    <div class="tv-container">
+        <!-- Top Bar -->
+        <header class="header">
+            <div class="brand-area">
+                <div class="logo-dusuco">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    DUSUCO
+                </div>
+                <div class="promo-tag-header">
+                    <div class="live-dot"></div>
+                    <span>SUPER OFERTAS DA LOJA</span>
+                </div>
+            </div>
+
+            <div class="clock-area">
+                <div class="clock-time" id="clockTime">--:--:--</div>
+                <div class="clock-date" id="clockDate">Carregando data...</div>
+            </div>
+        </header>
+
+        <!-- Main Product Presentation Area -->
+        <main class="hero-stage" id="heroStage">
+            <!-- Rendered dynamically by JavaScript -->
+            <div class="standby-box">
+                <svg class="standby-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <h1 class="standby-title">Carregando Ofertas DUSUCO...</h1>
+                <p class="standby-subtitle">Conectando ao catálogo de promoções em tempo real.</p>
+            </div>
+        </main>
+
+        <!-- Bottom Progress Bar -->
+        <footer class="footer-bar">
+            <div class="progress-track">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="counter-badge" id="counterBadge">OFERTAS DUSUCO</div>
+        </footer>
+    </div>
+
+    <!-- Discreet Controls for Store Attendant / Screen Setup -->
+    <div class="tv-controls">
+        <button class="ctrl-btn" id="btnPrev" title="Anterior">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <button class="ctrl-btn" id="btnPlayPause" title="Pausar / Reproduzir">
+            <svg id="iconPause" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6"/></svg>
+            <svg id="iconPlay" style="display:none;" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
+        </button>
+        <button class="ctrl-btn" id="btnNext" title="Próximo">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+        <select class="ctrl-select" id="selDuration" title="Tempo por produto">
+            <option value="5000">5s</option>
+            <option value="8000" selected>8s</option>
+            <option value="12000">12s</option>
+            <option value="15000">15s</option>
+        </select>
+        <button class="ctrl-btn" id="btnFullscreen" title="Tela Cheia (F11)">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+        </button>
+    </div>
+
+    <script>
+        // API Base configuration:
+        // If served on port 8081, points API calls to port 8080.
+        // If served on port 8080, points API calls to origin.
+        // A porta da TV e a 8080 encaminham /api/* ao servidor principal,
+        // entao a propria origem funciona em qualquer porta configurada.
+        const API_HOST = window.location.origin;
+
+        // Escape de HTML para textos vindos do banco
+        function esc(v) {
+            return String(v === null || v === undefined ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        let promoItems = [];
+        let currentIndex = 0;
+        let slideDuration = 8000;
+        let isPaused = false;
+        let slideTimer = null;
+        let progressInterval = null;
+        let progressStartTime = 0;
+
+        // --- Live Clock in Portuguese ---
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('clockTime').innerText = `${hours}:${minutes}:${seconds}`;
+
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            const dateStr = now.toLocaleDateString('pt-BR', options);
+            document.getElementById('clockDate').innerText = dateStr;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- Currency Formatter (R$ 0,00) ---
+        function formatMoney(val) {
+            return Number(val || 0).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // --- Fetch Promotional Products from Backend ---
+        async function fetchPromotions() {
+            try {
+                const res = await fetch(`${API_HOST}/api/tv/promotions`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.data)) {
+                    const newItems = data.data;
+                    const hadItems = promoItems.length > 0;
+                    promoItems = newItems;
+
+                    if (promoItems.length === 0) {
+                        renderStandby();
+                    } else {
+                        if (!hadItems || currentIndex >= promoItems.length) {
+                            currentIndex = 0;
+                            renderCurrentProduct();
+                            startProgress();
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Erro ao consultar promoções:', err);
+                if (promoItems.length === 0) {
+                    renderStandby('Tentando reconectar ao servidor...');
+                }
+            }
+        }
+
+        // --- Render Standby Screen when no promotions active ---
+        function renderStandby(msg) {
+            const stage = document.getElementById('heroStage');
+            stage.innerHTML = `
+                <div class="standby-box slide-in">
+                    <svg class="standby-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <h1 class="standby-title">DUSUCO • Em Breve Novas Ofertas!</h1>
+                    <p class="standby-subtitle">${msg || 'Todas as nossas promoções exclusivas serão apresentadas aqui em instantes. Fique atento às melhores oportunidades da loja!'}</p>
+                </div>
+            `;
+            document.getElementById('counterBadge').innerText = 'DUSUCO OFERTAS';
+            document.getElementById('progressFill').style.width = '0%';
+        }
+
+        // --- Render Active Product Slide ---
+        function renderCurrentProduct() {
+            if (promoItems.length === 0) return;
+            const p = promoItems[currentIndex];
+            const stage = document.getElementById('heroStage');
+
+            const hasPhoto = p.temFoto;
+            const imageUrl = `${API_HOST}/api/products/${p.id}/image?w=1200&v=${encodeURIComponent(p.ultimaAlteracao || '')}`;
+            const precoVendaFormatado = formatMoney(p.precoVenda);
+            const precoPromFormatado = formatMoney(p.precoPromocao);
+            const economiaFormatada = formatMoney(p.economiaReais);
+
+            function formatPromoDate(dStr) {
+                if (!dStr) return '';
+                const parts = dStr.split('-');
+                if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+                return dStr;
+            }
+
+            let promoDateBadge = '';
+            if (p.dtInicioProm && p.dtFimProm) {
+                promoDateBadge = `<span class="meta-pill" style="background: rgba(234, 88, 12, 0.18); border-color: rgba(234, 88, 12, 0.5); color: #FFA07A; font-weight: 700;">⏰ VÁLIDO DE ${formatPromoDate(p.dtInicioProm)} ATÉ ${formatPromoDate(p.dtFimProm)}</span>`;
+            } else if (p.dtFimProm) {
+                promoDateBadge = `<span class="meta-pill" style="background: rgba(234, 88, 12, 0.18); border-color: rgba(234, 88, 12, 0.5); color: #FFA07A; font-weight: 700;">⏰ VÁLIDO ATÉ ${formatPromoDate(p.dtFimProm)}</span>`;
+            } else {
+                promoDateBadge = `<span class="meta-pill" style="background: rgba(16, 185, 129, 0.18); border-color: rgba(16, 185, 129, 0.5); color: #34D399; font-weight: 700;">✨ OFERTA POR TEMPO LIMITADO</span>`;
+            }
+
+            stage.innerHTML = `
+                <!-- Left: Product Photo Showcase -->
+                <div class="image-showcase slide-in">
+                    <div class="image-badge-discount">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12.5 2C12.5 2 12.8 3.5 11.5 5C10.2 6.5 8 8.5 8 12C8 16.4 11.6 20 16 20C19.5 20 22 17.5 22 14C22 10.5 19 8.5 17.5 7C16 5.5 15.5 3.5 15.5 2C15.5 2 13.5 2 12.5 2Z"/></svg>
+                        <span>-${p.descontoPercentual}% OFF</span>
+                    </div>
+
+                    ${hasPhoto 
+                        ? `<img src="${imageUrl}" alt="${esc(p.descricao)}" class="product-img" onerror="this.onerror=null; this.src=''; this.parentElement.innerHTML='<div class=\\'image-placeholder\\'><svg viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.5\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\'/><circle cx=\\'8.5\\' cy=\\'8.5\\' r=\\'1.5\\'/><path d=\\'M21 15l-5-5L5 21\\'/></svg><span>Foto do Produto</span></div>'"/>`
+                        : `<div class="image-placeholder">
+                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                             <span style="font-size: 1.2vw; font-weight: 600;">DUSUCO • Sem Imagem</span>
+                           </div>`
+                    }
+                </div>
+
+                <!-- Right: Product Name & Giant Price Callout -->
+                <div class="details-showcase slide-in">
+                    <div class="meta-badges">
+                        <span class="meta-pill">CÓD: ${esc(p.codigo || p.id)}</span>
+                        ${p.referencia ? `<span class="meta-pill">REF: ${esc(p.referencia)}</span>` : ''}
+                        <span class="meta-pill">UN: ${esc(p.unidade)}</span>
+                        ${promoDateBadge}
+                    </div>
+
+                    <h1 class="product-title" title="${esc(p.descricao)}">${esc(p.descricao)}</h1>
+
+                    <!-- Price Card -->
+                    <div class="price-card">
+                        <div class="price-row-old">
+                            <span class="price-label-old">DE:</span>
+                            <span class="price-val-old">${precoVendaFormatado}</span>
+                        </div>
+
+                        <div class="price-row-promo">
+                            <span class="price-label-promo">POR:</span>
+                            <span class="price-val-promo">${precoPromFormatado}</span>
+                        </div>
+
+                        ${p.economiaReais > 0 ? `
+                            <div>
+                                <div class="savings-badge">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                    VOCÊ ECONOMIZA: ${economiaFormatada}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('counterBadge').innerText = `OFERTA ${currentIndex + 1} DE ${promoItems.length}`;
+        }
+
+        // --- Next / Prev Navigation ---
+        function nextSlide() {
+            if (promoItems.length <= 1) return;
+            currentIndex = (currentIndex + 1) % promoItems.length;
+            renderCurrentProduct();
+            resetProgress();
+        }
+
+        function prevSlide() {
+            if (promoItems.length <= 1) return;
+            currentIndex = (currentIndex - 1 + promoItems.length) % promoItems.length;
+            renderCurrentProduct();
+            resetProgress();
+        }
+
+        // --- Progress Bar & Autoplay ---
+        function startProgress() {
+            if (isPaused) return;
+            clearInterval(progressInterval);
+            clearTimeout(slideTimer);
+
+            progressStartTime = Date.now();
+            const fill = document.getElementById('progressFill');
+
+            progressInterval = setInterval(() => {
+                if (isPaused) return;
+                const elapsed = Date.now() - progressStartTime;
+                const pct = Math.min(100, (elapsed / slideDuration) * 100);
+                fill.style.width = `${pct}%`;
+
+                if (elapsed >= slideDuration) {
+                    clearInterval(progressInterval);
+                    nextSlide();
+                }
+            }, 60);
+        }
+
+        function resetProgress() {
+            document.getElementById('progressFill').style.width = '0%';
+            startProgress();
+        }
+
+        function togglePlayPause() {
+            isPaused = !isPaused;
+            document.getElementById('iconPause').style.display = isPaused ? 'none' : 'block';
+            document.getElementById('iconPlay').style.display = isPaused ? 'block' : 'none';
+            if (!isPaused) {
+                startProgress();
+            }
+        }
+
+        // --- Fullscreen Toggle ---
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.warn('Erro ao entrar em fullscreen:', err);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('btnNext').addEventListener('click', nextSlide);
+        document.getElementById('btnPrev').addEventListener('click', prevSlide);
+        document.getElementById('btnPlayPause').addEventListener('click', togglePlayPause);
+        document.getElementById('btnFullscreen').addEventListener('click', toggleFullscreen);
+
+        document.getElementById('selDuration').addEventListener('change', (e) => {
+            slideDuration = parseInt(e.target.value, 10) || 8000;
+            resetProgress();
+        });
+
+        // Keyboard navigation (useful for TV remotes / presentation clickers)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            }
+        });
+
+        // Tempo real: o servidor avisa (SSE) quando uma promocao muda
+        let promoTimer = null;
+        function agendarPromocoes() {
+            if (promoTimer) return;
+            promoTimer = setTimeout(() => { promoTimer = null; fetchPromotions(); }, 500);
+        }
+        if (window.EventSource) {
+            const es = new EventSource(`${API_HOST}/api/events`);
+            es.addEventListener('products', agendarPromocoes);
+        }
+
+        // Initial Load
+        fetchPromotions();
+
+        // Rede de seguranca: reconsulta a cada 5 min (cobre virada de dia e conexao de eventos caida)
+        setInterval(fetchPromotions, 300000);
+    </script>
+</body>
+</html>

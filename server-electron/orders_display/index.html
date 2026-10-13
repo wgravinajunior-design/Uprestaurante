@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Expedição & Fila de Senhas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Dynamic Brand Colors (Fetched from /api/company) */
+            --primary: #FF6B00;
+            --primary-hover: #EA580C;
+            --primary-glow: rgba(255, 107, 0, 0.22);
+            --primary-bg: rgba(255, 107, 0, 0.08);
+            --primary-border: rgba(255, 107, 0, 0.25);
+
+            /* Light Theme (Padrão: Limpo, Claro & Leve) */
+            --bg-body: #F8FAFC;
+            --bg-header: #FFFFFF;
+            --bg-toolbar: #FFFFFF;
+            --bg-card: #FFFFFF;
+            --bg-card-hover: #FFFFFF;
+            --border: #E2E8F0;
+            --border-light: #CBD5E1;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --card-shadow: 0 2px 10px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+            --card-hover-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+            --items-bg: #F8FAFC;
+            --items-border: #E2E8F0;
+            --item-text: #1E293B;
+            --qty-bg: #E2E8F0;
+            --qty-text: #0F172A;
+
+            /* Action / State Accents */
+            --gold: #D97706;
+            --gold-bg: #FEF3C7;
+            --gold-border: #FCD34D;
+            --gold-text: #92400E;
+            --gold-glow: rgba(245, 158, 11, 0.25);
+
+            --green: #059669;
+            --green-bg: #D1FAE5;
+            --green-border: #6EE7B7;
+            --green-text: #065F46;
+            --green-glow: rgba(16, 185, 129, 0.25);
+
+            --blue: #2563EB;
+            --blue-bg: #EFF6FF;
+            --red: #DC2626;
+            --red-bg: #FEE2E2;
+
+            --font-display: 'Outfit', sans-serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* Dark Mode (Opcional se o cliente desejar) */
+        body.dark-mode {
+            --bg-body: #090E17;
+            --bg-header: #0F172A;
+            --bg-toolbar: #0F172A;
+            --bg-card: #1E293B;
+            --bg-card-hover: #243048;
+            --border: #334155;
+            --border-light: #475569;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --card-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+            --card-hover-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+            --items-bg: rgba(0, 0, 0, 0.25);
+            --items-border: #334155;
+            --item-text: #F1F5F9;
+            --qty-bg: rgba(255, 255, 255, 0.12);
+            --qty-text: #FFFFFF;
+            --gold-bg: rgba(245, 158, 11, 0.15);
+            --gold-text: #FBBF24;
+            --green-bg: rgba(16, 185, 129, 0.15);
+            --green-text: #34D399;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- App Header --- */
+        .app-header {
+            background: var(--bg-header);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: var(--card-shadow);
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .company-logo-img {
+            height: 44px;
+            max-width: 140px;
+            object-fit: contain;
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+
+        .company-logo-img:hover {
+            transform: scale(1.03);
+        }
+
+        .logo-fallback-badge {
+            background: var(--primary);
+            color: #FFFFFF;
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 20px;
+            letter-spacing: 1px;
+            padding: 6px 14px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px var(--primary-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-title h1 {
+            font-family: var(--font-display);
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.2px;
+            line-height: 1.2;
+        }
+
+        .header-title p {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .clock-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Customize Theme Button */
+        .btn-theme-settings {
+            background: var(--primary-bg);
+            color: var(--primary);
+            border: 1px solid var(--primary-border);
+            padding: 7px 14px;
+            border-radius: 10px;
+            font-family: var(--font-display);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-theme-settings:hover {
+            background: var(--primary);
+            color: #FFFFFF;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .theme-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--primary);
+            border: 1px solid #FFFFFF;
+            display: inline-block;
+        }
+
+        /* Light/Dark Toggle */
+        .btn-mode-toggle {
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-mode-toggle:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Generate Ticket Button */
+        .btn-new-ticket {
+            background: var(--primary);
+            color: #FFFFFF;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 14px var(--primary-glow);
+            transition: all 0.2s;
+        }
+
+        .btn-new-ticket:hover {
+            transform: translateY(-1px);
+            background: var(--primary-hover);
+            box-shadow: 0 6px 18px var(--primary-glow);
+        }
+
+        /* --- Toolbar (Filters & Search) --- */
+        .toolbar {
+            background: var(--bg-toolbar);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .tab-btn {
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.18s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .tab-btn.active-preparo {
+            background: var(--gold-bg);
+            border-color: var(--gold-border);
+            color: var(--gold-text);
+        }
+
+        .tab-btn.active-prontos {
+            background: var(--green-bg);
+            border-color: var(--green-border);
+            color: var(--green-text);
+        }
+
+        .tab-btn.active-entregues {
+            background: var(--border);
+            border-color: var(--border-light);
+            color: var(--text-main);
+        }
+
+        .tab-btn.active-todos {
+            background: var(--blue-bg);
+            border-color: #93C5FD;
+            color: var(--blue);
+        }
+
+        .badge-count {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 1px 7px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        body.dark-mode .badge-count {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            max-width: 400px;
+            justify-content: flex-end;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 280px;
+            transition: border-color 0.2s;
+        }
+
+        .search-box:focus-within {
+            border-color: var(--primary);
+        }
+
+        .search-box input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 12.5px;
+            outline: none;
+            width: 100%;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11.5px;
+            font-weight: 700;
+            color: var(--green);
+            white-space: nowrap;
+        }
+
+        .live-dot {
+            width: 7px;
+            height: 7px;
+            background-color: var(--green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse-dot 1.8s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% { opacity: 0.4; transform: scale(0.9); }
+            50% { opacity: 1; transform: scale(1.2); }
+            100% { opacity: 0.4; transform: scale(0.9); }
+        }
+
+        /* --- Orders Grid (Compact & Crisp) --- */
+        .orders-container {
+            flex: 1;
+            padding: 14px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+            gap: 11px;
+            align-content: flex-start;
+        }
+
+        /* Order Card */
+        .order-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            padding: 11px 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            position: relative;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--card-hover-shadow);
+        }
+
+        .order-card.status-preparo {
+            border-top: 3.5px solid var(--gold);
+        }
+
+        .order-card.status-pronto {
+            border: 2px solid var(--green);
+            box-shadow: 0 0 14px var(--green-glow);
+            animation: pulse-card 3s infinite alternate;
+        }
+
+        @keyframes pulse-card {
+            0% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.15); }
+            100% { box-shadow: 0 0 22px rgba(16, 185, 129, 0.35); }
+        }
+
+        .order-card.status-entregue {
+            border-top: 3.5px solid var(--border-light);
+            opacity: 0.65;
+        }
+
+        /* Card Header */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .senha-tag {
+            font-family: var(--font-display);
+            font-size: 25px;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            line-height: 1;
+            display: flex;
+            align-items: baseline;
+            gap: 3px;
+            color: var(--text-main);
+        }
+
+        .senha-label {
+            font-size: 9.5px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 2px;
+        }
+
+        .status-badge {
+            padding: 3px 7px;
+            border-radius: 5px;
+            font-size: 9.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-preparo {
+            background: var(--gold-bg);
+            color: var(--gold-text);
+            border: 1px solid var(--gold-border);
+        }
+
+        .badge-pronto {
+            background: var(--green-bg);
+            color: var(--green-text);
+            border: 1px solid var(--green-border);
+        }
+
+        .badge-entregue {
+            background: var(--border);
+            color: var(--text-muted);
+            border: 1px solid var(--border-light);
+        }
+
+        /* Metadata & Customer */
+        .card-meta {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+            font-size: 10.5px;
+            color: var(--text-muted);
+        }
+
+        .meta-pill {
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 9.5px;
+        }
+
+        .timer-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-weight: 700;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 9.5px;
+        }
+
+        .timer-normal { background: var(--green-bg); color: var(--green-text); }
+        .timer-warning { background: var(--gold-bg); color: var(--gold-text); }
+        .timer-urgent { background: var(--red-bg); color: var(--red); }
+
+        /* Items Section (Compact & Without Price) */
+        .items-box {
+            background: var(--items-bg);
+            border: 1px solid var(--items-border);
+            border-radius: 7px;
+            padding: 5px 7px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            max-height: 130px;
+            overflow-y: auto;
+        }
+
+        .item-row {
+            display: flex;
+            align-items: flex-start;
+            font-size: 11.5px;
+            line-height: 1.25;
+        }
+
+        .item-qty-name {
+            display: flex;
+            gap: 5px;
+            align-items: baseline;
+            width: 100%;
+        }
+
+        .item-qty {
+            background: var(--qty-bg);
+            color: var(--qty-text);
+            font-weight: 800;
+            font-size: 10.5px;
+            padding: 1px 4px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .item-name {
+            font-weight: 600;
+            color: var(--item-text);
+            word-break: break-word;
+        }
+
+        /* Action Buttons on Card */
+        .card-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: auto;
+            padding-top: 2px;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 7px;
+            border: none;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 11.5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.18s;
+        }
+
+        .btn-pronto {
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: #FFFFFF;
+            box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-pronto:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 14px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-entregue {
+            background: linear-gradient(135deg, #10B981, #059669);
+            color: #FFFFFF;
+            box-shadow: 0 3px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-entregue:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 14px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-icon-only {
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 6px 8px;
+            border-radius: 7px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.18s;
+        }
+
+        .btn-icon-only:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* --- Empty State --- */
+        .empty-queue {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 70px 20px;
+            gap: 12px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            width: 60px;
+            height: 60px;
+            color: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        .empty-title {
+            font-family: var(--font-display);
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .empty-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            max-width: 420px;
+            line-height: 1.5;
+        }
+
+        /* --- Modals Base --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 480px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes modal-enter {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .modal-title {
+            font-family: var(--font-display);
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-input {
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 9px 12px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            border-color: var(--primary);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        /* Theme Modal Specifics */
+        .color-presets-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .color-preset-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-main);
+            transition: all 0.18s;
+        }
+
+        .color-preset-btn:hover {
+            border-color: var(--text-main);
+            transform: translateY(-1px);
+        }
+
+        .color-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 1px solid rgba(0,0,0,0.15);
+        }
+
+        .logo-preview-box {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--bg-body);
+            border: 1px dashed var(--border-light);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .logo-preview-img {
+            max-height: 48px;
+            max-width: 100px;
+            object-fit: contain;
+            border-radius: 6px;
+        }
+
+        .btn-upload-file {
+            background: var(--border);
+            color: var(--text-main);
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-upload-file:hover {
+            background: var(--primary);
+            color: #FFFFFF;
+        }
+
+        /* Thermal Print Styles (80mm & 58mm POS Cupom) */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printArea, #printArea * {
+                visibility: visible;
+            }
+            #printArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 78mm;
+                color: #000000;
+                background: #FFFFFF;
+                font-family: 'Courier New', Courier, monospace;
+                padding: 10px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- App Header -->
+    <header class="app-header">
+        <div class="header-brand">
+            <img id="companyLogoImg" src="/api/company/logo" alt="Logo" class="company-logo-img" onerror="this.style.display='none'; document.getElementById('logoFallbackBadge').style.display='flex';" />
+            <div id="logoFallbackBadge" class="logo-fallback-badge" style="display:none;">D</div>
+            <div class="header-title">
+                <h1 id="companyBrandTitle">DUSUCO</h1>
+                <p id="companyBrandSubtitle">Painel de Expedição & Fila de Senhas</p>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <!-- Live Clock -->
+            <div class="clock-pill" id="liveClock">--:--:--</div>
+
+            <!-- Theme & Brand Color Button -->
+            <button class="btn-theme-settings" id="btnOpenThemeModal" title="Personalizar Cores e Logo da Empresa">
+                <span class="theme-color-dot" id="headerColorDot"></span>
+                <span>Cores da Loja</span>
+            </button>
+
+            <!-- Light / Dark Mode Toggle -->
+            <button class="btn-mode-toggle" id="btnToggleMode" title="Alternar Modo Claro / Noturno">
+                <span id="modeToggleIcon">🌙</span>
+            </button>
+
+            <!-- New Ticket / Password Button -->
+            <button class="btn-new-ticket" id="btnOpenNewTicket">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                <span>Gerar Senha</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Toolbar (Filters & Search) -->
+    <div class="toolbar">
+        <div class="filter-tabs">
+            <button class="tab-btn active-preparo" data-filter="PREPARO" id="tabPreparo">
+                <span>🟡 Em Preparo</span>
+                <span class="badge-count" id="countPreparo">0</span>
+            </button>
+            <button class="tab-btn" data-filter="PRONTOS" id="tabProntos">
+                <span>✨ Prontos</span>
+                <span class="badge-count" id="countProntos">0</span>
+            </button>
+            <button class="tab-btn" data-filter="ENTREGUES" id="tabEntregues">
+                <span>✅ Entregues</span>
+                <span class="badge-count" id="countEntregues">0</span>
+            </button>
+            <button class="tab-btn" data-filter="TODOS" id="tabTodos">
+                <span>📋 Todos</span>
+                <span class="badge-count" id="countTodos">0</span>
+            </button>
+        </div>
+
+        <div class="toolbar-right">
+            <div class="search-box">
+                <svg width="15" height="15" fill="none" stroke="#64748B" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input type="text" id="searchInput" placeholder="Buscar senha, comanda ou cliente...">
+            </div>
+            <div class="live-indicator">
+                <div class="live-dot"></div>
+                <span>Ao Vivo</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Orders Grid -->
+    <main class="orders-container" id="ordersGrid">
+        <!-- Rendered dynamically by JavaScript -->
+    </main>
+
+    <!-- Modal: Generate Password & Thermal Print -->
+    <div class="modal-overlay" id="ticketModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 class="modal-title">Nova Senha de Atendimento</h2>
+                <button id="btnCloseTicketModal" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:20px;">✕</button>
+            </div>
+
+            <div style="background:var(--primary-bg); border:1px solid var(--primary-border); border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:11px; color:var(--primary); font-weight:700; text-transform:uppercase; letter-spacing:1px;">Próxima Senha do Dia</div>
+                <div style="font-family:var(--font-display); font-size:44px; font-weight:900; color:var(--primary);" id="previewSenhaVal">01</div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Número da Senha</label>
+                <input type="text" class="form-input" id="inputSenha" value="01">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Comanda / Mesa (Opcional)</label>
+                <input type="text" class="form-input" id="inputComanda" placeholder="Ex: Comanda 10 ou Mesa 04">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nome do Cliente (Opcional)</label>
+                <input type="text" class="form-input" id="inputCliente" placeholder="Ex: Walter">
+            </div>
+
+            <div class="modal-footer">
+                <button class="tab-btn" id="btnCancelTicketModal" style="flex:1; justify-content:center;">Cancelar</button>
+                <button class="btn-new-ticket" id="btnPrintTicket" style="flex:1.5; justify-content:center;">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H9v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    Imprimir Cupom
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Theme & Company Customizer -->
+    <div class="modal-overlay" id="themeModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2 class="modal-title">Identidade Visual da Empresa</h2>
+                <button id="btnCloseThemeModal" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:20px;">✕</button>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Nome da Empresa / Fantasia</label>
+                <input type="text" class="form-input" id="themeInputName" placeholder="Ex: DUSUCO">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Subtítulo / Ramo</label>
+                <input type="text" class="form-input" id="themeInputSubtitle" placeholder="Ex: Sucos, Açaí & Alimentos Naturais">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Cor da Empresa (Paleta da Loja)</label>
+                <div class="color-presets-grid">
+                    <button type="button" class="color-preset-btn" onclick="selectThemePreset('#FF6B00', '#EA580C')">
+                        <span class="color-swatch" style="background:#FF6B00;"></span>
+                        <span>Laranja</span>
+                    </button>
+                    <button type="button" class="color-preset-btn" onclick="selectThemePreset('#10B981', '#059669')">
+                        <span class="color-swatch" style="background:#10B981;"></span>
+                        <span>Verde</span>
+                    </button>
+                    <button type="button" class="color-preset-btn" onclick="selectThemePreset('#2563EB', '#1D4ED8')">
+                        <span class="color-swatch" style="background:#2563EB;"></span>
+                        <span>Azul</span>
+                    </button>
+                    <button type="button" class="color-preset-btn" onclick="selectThemePreset('#8B5CF6', '#7C3AED')">
+                        <span class="color-swatch" style="background:#8B5CF6;"></span>
+                        <span>Roxo</span>
+                    </button>
+                    <button type="button" class="color-preset-btn" onclick="selectThemePreset('#EF4444', '#DC2626')">
+                        <span class="color-swatch" style="background:#EF4444;"></span>
+                        <span>Vermelho</span>
+                    </button>
+                    <button type="button" class="color-preset-btn" onclick="selectThemePreset('#D97706', '#B45309')">
+                        <span class="color-swatch" style="background:#D97706;"></span>
+                        <span>Dourado</span>
+                    </button>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px; margin-top:6px;">
+                    <input type="color" id="themeInputColor" value="#FF6B00" style="width:38px; height:38px; border:none; cursor:pointer; border-radius:8px;">
+                    <span style="font-size:12px; color:var(--text-muted);">Ou escolha qualquer cor personalizada</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Logotipo da Empresa</label>
+                <div class="logo-preview-box">
+                    <img id="themeLogoPreview" src="/api/company/logo" alt="Logo Atual" class="logo-preview-img" />
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <input type="file" id="themeFileInput" accept="image/*" style="display:none;">
+                        <button type="button" class="btn-upload-file" onclick="document.getElementById('themeFileInput').click()">
+                            📁 Carregar Nova Foto/Logo
+                        </button>
+                        <button type="button" style="background:transparent; border:none; color:var(--red); font-size:11px; cursor:pointer; text-align:left;" onclick="resetCompanyLogo()">
+                            Restaurar logo padrão
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Aparência da Tela</label>
+                <div style="display:flex; gap:10px;">
+                    <label style="flex:1; display:flex; align-items:center; gap:8px; background:var(--bg-body); border:1px solid var(--border); padding:8px 12px; border-radius:8px; cursor:pointer; font-size:12.5px; font-weight:700;">
+                        <input type="radio" name="themeModeRadio" value="light" checked>
+                        <span>☀️ Claro (Mais Leve)</span>
+                    </label>
+                    <label style="flex:1; display:flex; align-items:center; gap:8px; background:var(--bg-body); border:1px solid var(--border); padding:8px 12px; border-radius:8px; cursor:pointer; font-size:12.5px; font-weight:700;">
+                        <input type="radio" name="themeModeRadio" value="dark">
+                        <span>🌙 Noturno (Escuro)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="tab-btn" id="btnCancelThemeModal" style="flex:1; justify-content:center;">Cancelar</button>
+                <button class="btn-new-ticket" id="btnSaveTheme" style="flex:1.5; justify-content:center;">
+                    💾 Salvar no Servidor
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden Thermal Print Template -->
+    <div id="printArea" style="display:none;">
+        <div style="text-align:center; font-family:'Courier New', monospace; width:280px; margin:0 auto; padding:10px 0;">
+            <h2 style="font-size:18px; margin-bottom:2px; font-weight:900;" id="printEmpresaNome">DUSUCO</h2>
+            <p style="font-size:10px;" id="printEmpresaSub">SUCOS & LANCHES DA LOJA</p>
+            <p style="font-size:10px; margin-top:4px;" id="printDataHora">--/--/---- --:--</p>
+            <p style="margin:6px 0;">--------------------------------</p>
+            <p style="font-size:12px; font-weight:bold; text-transform:uppercase;">SUA SENHA DE ATENDIMENTO</p>
+            <h1 style="font-size:52px; font-weight:900; margin:10px 0; letter-spacing:1px;" id="printSenha">00</h1>
+            <p style="font-size:13px; font-weight:bold;" id="printComanda">COMANDA: --</p>
+            <p style="font-size:12px;" id="printCliente"></p>
+            <p style="margin:6px 0;">--------------------------------</p>
+            <p style="font-size:11px; margin-top:8px;">Aguarde ser chamado pelo painel.<br>Obrigado pela preferência!</p>
+            <p style="margin-top:14px; font-size:10px;">================================</p>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration: Relative path works directly on both 8082 and 8080!
+        const API_HOST = window.location.origin;
+
+        // Token opcional (servidor com API_TOKEN): abra o painel uma vez com ?token=SEU_TOKEN
+        let API_TOKEN = '';
+        try {
+            const q = new URLSearchParams(window.location.search).get('token');
+            if (q) localStorage.setItem('apiToken', q);
+            API_TOKEN = localStorage.getItem('apiToken') || '';
+        } catch (e) {}
+        const _nativeFetch = window.fetch.bind(window);
+        window.fetch = (url, opts = {}) => {
+            if (API_TOKEN) {
+                opts = { ...opts, headers: { ...(opts.headers || {}), 'x-api-token': API_TOKEN } };
+            }
+            return _nativeFetch(url, opts);
+        };
+
+        // Escape de HTML: textos vindos do banco/cliente nunca entram crus no innerHTML
+        function esc(v) {
+            return String(v === null || v === undefined ? '' : v)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        let selectedSecondary = null;
+
+        let currentFilter = 'PREPARO';
+        let allOrders = [];
+        let autoSyncTimer = null;
+        let companyData = null;
+        let selectedLogoFile = null;
+
+        // --- Live Clock ---
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('liveClock').innerText = now.toLocaleTimeString('pt-BR');
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- Helper: Convert Hex Color to RGBA ---
+        function hexToRgba(hex, alpha) {
+            let c = hex.replace('#', '');
+            if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+            const num = parseInt(c, 16);
+            return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
+        }
+
+        // --- Apply Theme & Brand Color Dynamically ---
+        function applyTheme(cfg) {
+            const primary = cfg.corPrimaria || '#FF6B00';
+            const root = document.documentElement;
+
+            root.style.setProperty('--primary', primary);
+            root.style.setProperty('--primary-hover', cfg.corSecundaria || primary);
+            root.style.setProperty('--primary-glow', hexToRgba(primary, 0.25));
+            root.style.setProperty('--primary-bg', hexToRgba(primary, 0.08));
+            root.style.setProperty('--primary-border', hexToRgba(primary, 0.25));
+
+            document.getElementById('headerColorDot').style.backgroundColor = primary;
+
+            if (cfg.modoTema === 'dark') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('modeToggleIcon').innerText = '☀️';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.getElementById('modeToggleIcon').innerText = '🌙';
+            }
+
+            if (cfg.nome) {
+                document.getElementById('companyBrandTitle').innerText = cfg.nome;
+                document.getElementById('printEmpresaNome').innerText = cfg.nome;
+                document.title = `${cfg.nome} - Painel de Expedição & Fila`;
+            }
+            if (cfg.subtitulo) {
+                document.getElementById('companyBrandSubtitle').innerText = cfg.subtitulo;
+                document.getElementById('printEmpresaSub').innerText = cfg.subtitulo;
+            }
+
+            // Cache-busting on logo
+            const logoImg = document.getElementById('companyLogoImg');
+            logoImg.src = `${API_HOST}/api/company/logo?t=${Date.now()}`;
+            logoImg.style.display = 'block';
+            document.getElementById('logoFallbackBadge').style.display = 'none';
+        }
+
+        // --- Fetch Company & Theme Data from Server ---
+        async function fetchCompanyData() {
+            try {
+                let res;
+                try {
+                    res = await fetch(`${API_HOST}/api/company`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                } catch(e) {
+                    res = await fetch(`http://${window.location.hostname}:8080/api/company`);
+                }
+                const data = await res.json();
+                if (data && data.success && data.data) {
+                    companyData = data.data;
+                    applyTheme(companyData);
+
+                    document.getElementById('themeInputName').value = companyData.nome || '';
+                    document.getElementById('themeInputSubtitle').value = companyData.subtitulo || '';
+                    document.getElementById('themeInputColor').value = companyData.corPrimaria || '#FF6B00';
+                    const radio = document.querySelector(`input[name="themeModeRadio"][value="${companyData.modoTema || 'light'}"]`);
+                    if (radio) radio.checked = true;
+                    document.getElementById('themeLogoPreview').src = `${API_HOST}/api/company/logo?t=${Date.now()}`;
+                }
+            } catch (err) {
+                console.warn('Aviso ao carregar dados da empresa:', err);
+            }
+        }
+
+        // --- Web Audio Chime (Ding Dong Bell) ---
+        function playChime() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(880, ctx.currentTime);
+                gain1.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(ctx.currentTime);
+                osc1.stop(ctx.currentTime + 0.8);
+
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.18);
+                gain2.gain.setValueAtTime(0.25, ctx.currentTime + 0.18);
+                gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(ctx.currentTime + 0.18);
+                osc2.stop(ctx.currentTime + 1.2);
+            } catch (e) {
+                console.warn('Audio chime:', e);
+            }
+        }
+
+        // --- Elapsed Time Calculator ---
+        function calculateElapsed(dtStr) {
+            if (!dtStr) return { text: 'Recente', cls: 'timer-normal' };
+            const launch = new Date(dtStr.replace(' ', 'T'));
+            const now = new Date();
+            const diffMs = now - launch;
+            const diffMins = Math.max(0, Math.floor(diffMs / 60000));
+
+            if (diffMins < 5) {
+                return { text: `${diffMins} min`, cls: 'timer-normal' };
+            } else if (diffMins < 10) {
+                return { text: `${diffMins} min`, cls: 'timer-warning' };
+            } else {
+                return { text: `${diffMins} min!`, cls: 'timer-urgent' };
+            }
+        }
+
+        // --- Fetch Orders from Backend ---
+        async function fetchOrders() {
+            try {
+                let res;
+                try {
+                    res = await fetch(`${API_HOST}/api/orders?filter=TODOS&limit=100`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                } catch(e) {
+                    res = await fetch(`http://${window.location.hostname}:8080/api/orders?filter=TODOS&limit=100`);
+                }
+                const data = await res.json();
+                if (data && data.success && Array.isArray(data.data)) {
+                    allOrders = data.data;
+                }
+            } catch (err) {
+                console.warn('Aviso ao consultar pedidos:', err);
+            } finally {
+                updateCounts();
+                renderOrders();
+            }
+        }
+
+        // --- Update Badge Counts ---
+        function updateCounts() {
+            const preparo = allOrders.filter(o => o.estado === 'PREPARO').length;
+            const prontos = allOrders.filter(o => o.estado === 'PRONTO').length;
+            const entregues = allOrders.filter(o => o.estado === 'ENTREGUE').length;
+
+            document.getElementById('countPreparo').innerText = preparo;
+            document.getElementById('countProntos').innerText = prontos;
+            document.getElementById('countEntregues').innerText = entregues;
+            document.getElementById('countTodos').innerText = allOrders.length;
+        }
+
+        // --- Render Orders Cards Grid (Compact & Sem Preço) ---
+        function renderOrders() {
+            const grid = document.getElementById('ordersGrid');
+            const searchVal = document.getElementById('searchInput').value.trim().toLowerCase();
+
+            let filtered = allOrders;
+            if (currentFilter === 'PREPARO') {
+                filtered = allOrders.filter(o => o.estado === 'PREPARO');
+            } else if (currentFilter === 'PRONTOS') {
+                filtered = allOrders.filter(o => o.estado === 'PRONTO');
+            } else if (currentFilter === 'ENTREGUES') {
+                filtered = allOrders.filter(o => o.estado === 'ENTREGUE');
+            }
+
+            if (searchVal) {
+                filtered = filtered.filter(o => {
+                    const matchSenha = String(o.senha || '').toLowerCase().includes(searchVal);
+                    const matchComanda = String(o.comanda || '').toLowerCase().includes(searchVal);
+                    const matchCliente = String(o.clienteNome || '').toLowerCase().includes(searchVal);
+                    const matchId = String(o.id || '').includes(searchVal);
+                    return matchSenha || matchComanda || matchCliente || matchId;
+                });
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="empty-queue">
+                        <svg class="empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <h2 class="empty-title">Nenhum Pedido Nesta Fila</h2>
+                        <p class="empty-desc">Todos os pedidos estão em dia! Novos pedidos lançados no ERP ou pelo botão aparecerão aqui automaticamente.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(o => {
+                const isPreparo = o.estado === 'PREPARO';
+                const isPronto = o.estado === 'PRONTO';
+
+                const cardClass = isPreparo ? 'status-preparo' : isPronto ? 'status-pronto' : 'status-entregue';
+                const badgeClass = isPreparo ? 'badge-preparo' : isPronto ? 'badge-pronto' : 'badge-entregue';
+                const badgeLabel = isPreparo ? '🟡 Em Preparo' : isPronto ? '✨ Pronto' : '✅ Entregue';
+
+                const timer = calculateElapsed(o.dataLancamento);
+
+                const itemsHtml = (o.itens && o.itens.length > 0)
+                    ? o.itens.map(it => `
+                        <div class="item-row">
+                            <div class="item-qty-name">
+                                <span class="item-qty">${esc(it.quantidade)}x</span>
+                                <span class="item-name">${esc(it.descricao)}</span>
+                            </div>
+                        </div>
+                    `).join('')
+                    : `<div style="font-size:11px; color:var(--text-muted); text-align:center; padding:3px;">Pedido #${o.id} sem itens</div>`;
+
+                let actionButtonsHtml = '';
+                if (isPreparo) {
+                    actionButtonsHtml = `
+                        <button class="btn-action btn-pronto" onclick="changeStatus(${o.id}, 'PRONTO')">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            PRONTO
+                        </button>
+                        <button class="btn-icon-only" title="Re-imprimir Cupom" onclick="reprintTicket(${o.id})">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4H9v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                        </button>
+                    `;
+                } else if (isPronto) {
+                    actionButtonsHtml = `
+                        <button class="btn-action btn-entregue" onclick="changeStatus(${o.id}, 'ENTREGUE')">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            ENTREGUE
+                        </button>
+                        <button class="btn-icon-only" title="Voltar para Preparo" onclick="changeStatus(${o.id}, 'REABRIR')">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                        </button>
+                    `;
+                } else {
+                    actionButtonsHtml = `
+                        <button class="btn-icon-only" style="flex:1; font-size:11px; gap:4px;" onclick="changeStatus(${o.id}, 'REABRIR')">
+                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                            Reabrir
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="order-card ${cardClass}" id="card-${o.id}">
+                        <div class="card-header">
+                            <div>
+                                <div class="senha-label">SENHA</div>
+                                <div class="senha-tag">${esc(o.senha)}</div>
+                            </div>
+                            <span class="status-badge ${badgeClass}">${badgeLabel}</span>
+                        </div>
+
+                        <div class="card-meta">
+                            <span class="meta-pill">#${o.id}</span>
+                            ${o.comanda ? `<span class="meta-pill" style="color:var(--primary); font-weight:700;">CMD: ${esc(o.comanda)}</span>` : ''}
+                            ${o.mesa ? `<span class="meta-pill">MESA: ${esc(o.mesa)}</span>` : ''}
+                            ${o.clienteNome ? `<span class="meta-pill">${esc(o.clienteNome)}</span>` : ''}
+                            <span class="timer-badge ${timer.cls}">⏱️ ${timer.text}</span>
+                        </div>
+
+                        <div class="items-box">
+                            ${itemsHtml}
+                        </div>
+
+                        <div class="card-actions">
+                            ${actionButtonsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- Status Change Action ---
+        async function changeStatus(orderId, action) {
+            try {
+                const res = await fetch(`${API_HOST}/api/orders/${orderId}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (action === 'PRONTO') {
+                        playChime();
+                    }
+                    await fetchOrders();
+                }
+            } catch (err) {
+                alert('Erro ao atualizar status: ' + err.message);
+            }
+        }
+
+        // --- Reprint Thermal Ticket ---
+        function reprintTicket(orderId) {
+            const order = allOrders.find(o => o.id === orderId);
+            if (!order) return;
+            printTicketData(order.senha, order.comanda, order.clienteNome);
+        }
+
+        function printTicketData(senha, comanda, cliente) {
+            document.getElementById('printSenha').innerText = senha;
+            document.getElementById('printComanda').innerText = comanda ? `COMANDA: ${comanda}` : '';
+            document.getElementById('printCliente').innerText = cliente ? `CLIENTE: ${cliente}` : '';
+            document.getElementById('printDataHora').innerText = new Date().toLocaleString('pt-BR');
+            window.print();
+        }
+
+        // --- Presets in Theme Modal ---
+        function selectThemePreset(prim, sec) {
+            document.getElementById('themeInputColor').value = prim;
+            selectedSecondary = sec;
+        }
+
+        // --- Logo File Selection Handler ---
+        document.getElementById('themeFileInput').addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                selectedLogoFile = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    document.getElementById('themeLogoPreview').src = evt.target.result;
+                };
+                reader.readAsDataURL(selectedLogoFile);
+            }
+        });
+
+        // --- Reset Logo to Default Vector ---
+        async function resetCompanyLogo() {
+            if (!confirm('Deseja restaurar o logotipo padrão da empresa?')) return;
+            try {
+                await fetch(`${API_HOST}/api/company/logo`, { method: 'DELETE' });
+                selectedLogoFile = null;
+                document.getElementById('themeLogoPreview').src = `${API_HOST}/api/company/logo?t=${Date.now()}`;
+                document.getElementById('companyLogoImg').src = `${API_HOST}/api/company/logo?t=${Date.now()}`;
+            } catch (err) {
+                alert('Erro ao restaurar logo: ' + err.message);
+            }
+        }
+
+        // --- Save Theme & Visual Identity ---
+        document.getElementById('btnSaveTheme').addEventListener('click', async () => {
+            const nome = document.getElementById('themeInputName').value.trim() || 'DUSUCO';
+            const subtitulo = document.getElementById('themeInputSubtitle').value.trim() || 'Sucos & Alimentos Naturais';
+            const corPrimaria = document.getElementById('themeInputColor').value;
+            const modoTema = document.querySelector('input[name="themeModeRadio"]:checked').value;
+
+            try {
+                // 1. Upload Logo file if selected
+                if (selectedLogoFile) {
+                    const formData = new FormData();
+                    formData.append('logo', selectedLogoFile);
+                    await fetch(`${API_HOST}/api/company/logo`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                }
+
+                // 2. Save Colors & Theme Config
+                const res = await fetch(`${API_HOST}/api/company/theme`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, subtitulo, corPrimaria, corSecundaria: selectedSecondary || corPrimaria, modoTema })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    applyTheme({ nome, subtitulo, corPrimaria, corSecundaria: selectedSecondary || corPrimaria, modoTema });
+                    document.getElementById('themeModal').style.display = 'none';
+                    selectedLogoFile = null;
+                }
+            } catch (err) {
+                alert('Erro ao salvar tema: ' + err.message);
+            }
+        });
+
+        // --- Quick Light / Dark Mode Toggle Button ---
+        document.getElementById('btnToggleMode').addEventListener('click', async () => {
+            const isDark = document.body.classList.contains('dark-mode');
+            const newMode = isDark ? 'light' : 'dark';
+
+            if (newMode === 'dark') {
+                document.body.classList.add('dark-mode');
+                document.getElementById('modeToggleIcon').innerText = '☀️';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.getElementById('modeToggleIcon').innerText = '🌙';
+            }
+
+            // Persist preference to server
+            try {
+                await fetch(`${API_HOST}/api/company/theme`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ modoTema: newMode })
+                });
+            } catch (e) {}
+        });
+
+        // --- Modals Open / Close ---
+        document.getElementById('btnOpenThemeModal').addEventListener('click', () => {
+            document.getElementById('themeModal').style.display = 'flex';
+        });
+        document.getElementById('btnCloseThemeModal').addEventListener('click', () => {
+            document.getElementById('themeModal').style.display = 'none';
+        });
+        document.getElementById('btnCancelThemeModal').addEventListener('click', () => {
+            document.getElementById('themeModal').style.display = 'none';
+        });
+
+        document.getElementById('btnOpenNewTicket').addEventListener('click', async () => {
+            try {
+                const res = await fetch(`${API_HOST}/api/orders/next-password`);
+                const data = await res.json();
+                const senha = (data.success && data.senha) ? data.senha : '01';
+                document.getElementById('previewSenhaVal').innerText = senha;
+                document.getElementById('inputSenha').value = senha;
+            } catch (e) {
+                document.getElementById('previewSenhaVal').innerText = '01';
+                document.getElementById('inputSenha').value = '01';
+            }
+            document.getElementById('ticketModal').style.display = 'flex';
+        });
+
+        document.getElementById('btnCloseTicketModal').addEventListener('click', () => {
+            document.getElementById('ticketModal').style.display = 'none';
+        });
+        document.getElementById('btnCancelTicketModal').addEventListener('click', () => {
+            document.getElementById('ticketModal').style.display = 'none';
+        });
+
+        // --- Print Ticket Button ---
+        document.getElementById('btnPrintTicket').addEventListener('click', async () => {
+            const senha = document.getElementById('inputSenha').value.trim();
+            const comanda = document.getElementById('inputComanda').value.trim();
+            const cliente = document.getElementById('inputCliente').value.trim();
+
+            // So imprime se o servidor registrou o ticket (evita senha impressa e nao gravada)
+            try {
+                const res = await fetch(`${API_HOST}/api/orders/quick-ticket`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senha, comanda, nome: cliente })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Falha ao registrar a senha');
+            } catch (err) {
+                alert('Não foi possível registrar a senha: ' + err.message);
+                return;
+            }
+
+            printTicketData(senha, comanda, cliente);
+            document.getElementById('ticketModal').style.display = 'none';
+            document.getElementById('inputComanda').value = '';
+            document.getElementById('inputCliente').value = '';
+            fetchOrders();
+        });
+
+        // --- Filter Tabs Click Listeners ---
+        document.querySelectorAll('.tab-btn[data-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn[data-filter]').forEach(b => {
+                    b.className = 'tab-btn';
+                });
+                const filter = btn.getAttribute('data-filter');
+                currentFilter = filter;
+                if (filter === 'PREPARO') btn.classList.add('active-preparo');
+                else if (filter === 'PRONTOS') btn.classList.add('active-prontos');
+                else if (filter === 'ENTREGUES') btn.classList.add('active-entregues');
+                else if (filter === 'TODOS') btn.classList.add('active-todos');
+                renderOrders();
+            });
+        });
+
+        // Search Input
+        document.getElementById('searchInput').addEventListener('input', () => {
+            renderOrders();
+        });
+
+        // --- Initialize ---
+        updateCounts();
+        renderOrders();
+        fetchCompanyData();
+        fetchOrders();
+        // Tempo real: o servidor avisa (SSE) quando ha pedidos novos ou mudancas de etapa.
+        // O polling continua apenas como rede de seguranca (conexao caida / navegador sem SSE).
+        let fetchTimer = null;
+        function agendarFetch() {
+            if (fetchTimer) return;
+            fetchTimer = setTimeout(() => { fetchTimer = null; fetchOrders(); }, 300);
+        }
+        function conectarEventos() {
+            if (!window.EventSource) return;
+            const es = new EventSource(`${API_HOST}/api/events`);
+            es.addEventListener('orders', agendarFetch);
+            es.addEventListener('hello', agendarFetch); // ressincroniza ao (re)conectar
+            es.addEventListener('products', () => fetchCompanyData());
+        }
+        conectarEventos();
+        autoSyncTimer = setInterval(fetchOrders, 30000);
+    </script>
+</body>
+</html>

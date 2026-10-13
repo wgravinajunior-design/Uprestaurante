@@ -1,0 +1,14 @@
+{
+  "name": "e-comerce",
+  "version": "1.0.0",
+  "description": "Raiz do projeto. O servidor fica em server-electron/ e o app em flutter_web/.",
+  "private": true,
+  "scripts": {
+    "start": "cd server-electron && npm start",
+    "server": "cd server-electron && node server/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}

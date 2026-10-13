@@ -1,0 +1,6 @@
+{
+  "dbConn": "localhost/3060:C:\\\\caminho\\\\para\\\\DADOS.FDB",
+  "user": "SYSDBA",
+  "password": "trocar-esta-senha",
+  "pool": 5
+}

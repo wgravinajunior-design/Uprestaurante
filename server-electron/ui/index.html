@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DUSUCO ERP - Servidor Firebird 5 & Flutter Web</title>
+    <style>
+        :root {
+            --bg-main: #0b1120;
+            --bg-card: #1e293b;
+            --bg-hover: #334155;
+            --border: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.2);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.2);
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(180deg, #111827 0%, #0b1120 100%);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-badge {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+            font-weight: 800;
+            font-size: 16px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .title-text h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .title-text p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            box-shadow: 0 0 16px var(--accent-glow);
+            transform: translateY(-1px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-hover);
+        }
+
+        .content {
+            flex: 1;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 24px;
+            overflow: hidden;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .panel-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            overflow-y: auto;
+        }
+
+        .status-box {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .status-info h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #34d399;
+        }
+
+        .status-info p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .metric-card {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metric-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .metric-value.promo {
+            color: #f59e0b;
+        }
+
+        .metric-value.active {
+            color: #10b981;
+        }
+
+        .logs-container {
+            flex: 1;
+            background: #060a13;
+            padding: 12px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.02);
+            word-break: break-all;
+        }
+
+        .log-time {
+            color: #64748b;
+            flex-shrink: 0;
+        }
+
+        .log-tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .tag-HTTP { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+        .tag-AUDIT { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+        .tag-UPDATE { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+        .tag-ERROR { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .tag-SYSTEM { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+        .tag-DATABASE { background: rgba(14, 165, 233, 0.2); color: #38bdf8; }
+
+        .log-msg {
+            color: #e2e8f0;
+            flex: 1;
+        }
+
+        .footer {
+            background: #090e1a;
+            border-top: 1px solid var(--border);
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-title">
+            <div class="logo-badge">DUSUCO</div>
+            <div class="title-text">
+                <h1>Servidor ERP Firebird 5.0 & API REST</h1>
+                <p>Retaguarda Integrado • DADOS.FDB (Porta 3060)</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" id="btnRefresh">Atualizar</button>
+            <button class="btn" id="btnOpenTheme" style="background: linear-gradient(135deg, #6366F1, #4F46E5); box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4 4 4 0 014-4c.7 0 1.34.18 1.9.5A5.98 5.98 0 0113 7c2.76 0 5 2.24 5 5 0 .8-.19 1.55-.53 2.22A3.99 3.99 0 0121 17a4 4 0 01-4 4H7z"/></svg>
+                🎨 Cores & Logo
+            </button>
+            <button class="btn" id="btnOpenOrders" style="background: linear-gradient(135deg, #10B981, #059669); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                🎫 Fila de Senhas (Porta 8082)
+            </button>
+            <button class="btn" id="btnOpenTv" style="background: linear-gradient(135deg, #FF6B00, #EA580C); box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                📺 Vitrine TV (Porta 8081)
+            </button>
+            <button class="btn" id="btnOpenWeb">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                Abrir Flutter Web
+            </button>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- Sidebar / Status -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>Status da Conexão</h2>
+            </div>
+            <div class="panel-body">
+                <div class="status-box">
+                    <div class="status-dot"></div>
+                    <div class="status-info">
+                        <h3>Firebird 5.0 Conectado</h3>
+                        <p>localhost:3060/DADOS.FDB</p>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Porta da API REST</span>
+                    <span class="metric-value">http://localhost:8080</span>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Vitrine Promo TV</span>
+                    <span class="metric-value" style="color: #f97316; font-size: 14px;">http://localhost:8081</span>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Fila de Senhas & KDS</span>
+                    <span class="metric-value" style="color: #34d399; font-size: 14px;">http://localhost:8082</span>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Total de Produtos</span>
+                    <span class="metric-value" id="statTotal">-</span>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Produtos Ativos</span>
+                    <span class="metric-value active" id="statAtivos">-</span>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Produtos Inativos</span>
+                    <span class="metric-value" id="statInativos">-</span>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Itens em Promoção</span>
+                    <span class="metric-value promo" id="statPromo">-</span>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Itens com Estoque Baixo</span>
+                    <span class="metric-value" id="statEstoqueBaixo">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Request / Audit Log -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>Console de Requisições & Auditoria em Tempo Real</h2>
+                <span style="font-size: 11px; color: var(--text-secondary);" id="logCount">0 eventos</span>
+            </div>
+            <div class="logs-container" id="logsBox">
+                <!-- Logs rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <span>Banco: C:\Users\Walter Gravina\OneDrive\DADOS\DUSUCO\DADOS.FDB</span>
+        <span>Versão 1.0.0 • Electron & Node.js</span>
+    </div>
+
+    <!-- Theme Customization Modal -->
+    <div id="themeModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:#0f172a; border:1px solid #334155; border-radius:14px; width:460px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; gap:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px;">
+                <h3 style="font-size:16px; font-weight:800; color:#f8fafc;">🎨 Cores & Logotipo da Empresa</h3>
+                <button id="btnCloseTheme" style="background:transparent; border:none; color:#94a3b8; font-size:18px; cursor:pointer;">✕</button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Nome da Empresa (Fantasia)</label>
+                <input type="text" id="cfgCompanyName" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;" placeholder="Ex: DUSUCO">
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Cor Principal da Loja</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button type="button" class="btn btn-outline" style="padding:6px 10px; font-size:11px; display:flex; align-items:center; gap:6px;" onclick="document.getElementById('cfgColorPicker').value='#FF6B00'">
+                        <span style="width:12px; height:12px; border-radius:50%; background:#FF6B00; display:inline-block;"></span> Laranja
+                    </button>
+                    <button type="button" class="btn btn-outline" style="padding:6px 10px; font-size:11px; display:flex; align-items:center; gap:6px;" onclick="document.getElementById('cfgColorPicker').value='#10B981'">
+                        <span style="width:12px; height:12px; border-radius:50%; background:#10B981; display:inline-block;"></span> Verde
+                    </button>
+                    <button type="button" class="btn btn-outline" style="padding:6px 10px; font-size:11px; display:flex; align-items:center; gap:6px;" onclick="document.getElementById('cfgColorPicker').value='#2563EB'">
+                        <span style="width:12px; height:12px; border-radius:50%; background:#2563EB; display:inline-block;"></span> Azul
+                    </button>
+                    <button type="button" class="btn btn-outline" style="padding:6px 10px; font-size:11px; display:flex; align-items:center; gap:6px;" onclick="document.getElementById('cfgColorPicker').value='#8B5CF6'">
+                        <span style="width:12px; height:12px; border-radius:50%; background:#8B5CF6; display:inline-block;"></span> Roxo
+                    </button>
+                    <button type="button" class="btn btn-outline" style="padding:6px 10px; font-size:11px; display:flex; align-items:center; gap:6px;" onclick="document.getElementById('cfgColorPicker').value='#EF4444'">
+                        <span style="width:12px; height:12px; border-radius:50%; background:#EF4444; display:inline-block;"></span> Vermelho
+                    </button>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:4px;">
+                    <input type="color" id="cfgColorPicker" value="#FF6B00" style="width:36px; height:36px; border:none; cursor:pointer; border-radius:6px;">
+                    <span style="font-size:12px; color:#94a3b8;">Cor selecionada para todos os frontends</span>
+                </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Tema Padrão da Fila</label>
+                <div style="display:flex; gap:10px;">
+                    <label style="flex:1; display:flex; align-items:center; gap:6px; background:#1e293b; border:1px solid #334155; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:12px; color:#f8fafc;">
+                        <input type="radio" name="cfgThemeMode" value="light" checked>
+                        <span>☀️ Claro (Mais Leve)</span>
+                    </label>
+                    <label style="flex:1; display:flex; align-items:center; gap:6px; background:#1e293b; border:1px solid #334155; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:12px; color:#f8fafc;">
+                        <input type="radio" name="cfgThemeMode" value="dark">
+                        <span>🌙 Noturno</span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:8px;">
+                <button class="btn btn-outline" id="btnCancelTheme">Cancelar</button>
+                <button class="btn" id="btnSaveThemeCfg" style="background:#6366f1;">💾 Salvar Identidade</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Links externos: window.open e interceptado em main.js (setWindowOpenHandler -> navegador padrao)
+        const shell = null;
+
+        // Token opcional (servidor com API_TOKEN), entregue pelo preload
+        const _nativeFetch = window.fetch.bind(window);
+        window.fetch = (url, opts = {}) => {
+            const token = window.appCfg && window.appCfg.apiToken;
+            if (token) opts = { ...opts, headers: { ...(opts.headers || {}), 'x-api-token': token } };
+            return _nativeFetch(url, opts);
+        };
+
+        async function fetchCompany() {
+            try {
+                const res = await fetch('http://localhost:8080/api/company');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const c = data.data;
+                    document.getElementById('cfgCompanyName').value = c.nome || '';
+                    document.getElementById('cfgColorPicker').value = c.corPrimaria || '#FF6B00';
+                    const rad = document.querySelector(`input[name="cfgThemeMode"][value="${c.modoTema || 'light'}"]`);
+                    if (rad) rad.checked = true;
+
+                    // Update header logo badge
+                    const badge = document.querySelector('.logo-badge');
+                    if (badge) {
+                        badge.innerText = (c.nome || 'DUSUCO').substring(0, 8);
+                        badge.style.background = c.corPrimaria || '#FF6B00';
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function fetchStats() {
+            try {
+                const res = await fetch('http://localhost:8080/api/stats');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    document.getElementById('statTotal').innerText = data.data.totalProdutos.toLocaleString();
+                    document.getElementById('statAtivos').innerText = data.data.ativos.toLocaleString();
+                    document.getElementById('statInativos').innerText = data.data.inativos.toLocaleString();
+                    document.getElementById('statPromo').innerText = data.data.emPromocao.toLocaleString();
+                    document.getElementById('statEstoqueBaixo').innerText = data.data.estoqueBaixo.toLocaleString();
+                }
+            } catch (e) {
+                console.error('Falha ao obter status:', e);
+            }
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch('http://localhost:8080/api/logs');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const logsBox = document.getElementById('logsBox');
+                    document.getElementById('logCount').innerText = `${data.data.length} eventos`;
+                    logsBox.innerHTML = data.data.map(log => `
+                        <div class="log-line">
+                            <span class="log-time">${escapeHtml(log.time)}</span>
+                            <span class="log-tag tag-${escapeHtml(log.type)}">${escapeHtml(log.type)}</span>
+                            <span class="log-msg">${escapeHtml(log.message)}</span>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) {}
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        document.getElementById('btnOpenTheme').addEventListener('click', () => {
+            fetchCompany();
+            document.getElementById('themeModal').style.display = 'flex';
+        });
+        document.getElementById('btnCloseTheme').addEventListener('click', () => {
+            document.getElementById('themeModal').style.display = 'none';
+        });
+        document.getElementById('btnCancelTheme').addEventListener('click', () => {
+            document.getElementById('themeModal').style.display = 'none';
+        });
+
+        document.getElementById('btnSaveThemeCfg').addEventListener('click', async () => {
+            const nome = document.getElementById('cfgCompanyName').value.trim() || 'DUSUCO';
+            const corPrimaria = document.getElementById('cfgColorPicker').value;
+            const modoTema = document.querySelector('input[name="cfgThemeMode"]:checked').value;
+
+            try {
+                const res = await fetch('http://localhost:8080/api/company/theme', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nome, corPrimaria, modoTema })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('themeModal').style.display = 'none';
+                    fetchCompany();
+                    alert('Identidade visual salva com sucesso! Os frontends carregarão as novas cores automaticamente.');
+                }
+            } catch (err) {
+                alert('Erro ao salvar: ' + err.message);
+            }
+        });
+
+        document.getElementById('btnOpenWeb').addEventListener('click', () => {
+            const url = 'http://localhost:8080/';
+            if (shell) shell.openExternal(url);
+            else window.open(url, '_blank');
+        });
+
+        document.getElementById('btnOpenTv').addEventListener('click', () => {
+            const url = 'http://localhost:8081/';
+            if (shell) shell.openExternal(url);
+            else window.open(url, '_blank');
+        });
+
+        document.getElementById('btnOpenOrders').addEventListener('click', () => {
+            const url = 'http://localhost:8082/';
+            if (shell) shell.openExternal(url);
+            else window.open(url, '_blank');
+        });
+
+        document.getElementById('btnRefresh').addEventListener('click', () => {
+            fetchStats();
+            fetchLogs();
+            fetchCompany();
+        });
+
+        setInterval(fetchStats, 5000);
+        setInterval(fetchLogs, 2000);
+        fetchStats();
+        fetchLogs();
+        fetchCompany();
+    </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# Dependencias
+node_modules/
+
+# Gerados / locais
+server-electron/cache/
+flutter_web/build/
+flutter_web/.dart_tool/
+flutter_web/.idea/
+flutter_web/.flutter-plugins-dependencies
+*.log
+.DS_Store
+Thumbs.db
+
+# Configuracao local (credenciais, tema, logo): use config/db.example.json como modelo
+server-electron/config/*
+!server-electron/config/db.example.json
+
+# Bancos e backups
+*.fdb
+*.FDB
+*.bak
