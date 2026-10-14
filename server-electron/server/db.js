@@ -103,6 +103,68 @@ const fbOptions = {
     pageSize: 4096
 };
 
+// --- Configuracao do banco editavel em tempo de execucao (tela do servidor) ---
+const CFG_PATH = path.join(__dirname, '..', 'config', 'db.json');
+
+function getDbConfig() {
+    return {
+        host: fbOptions.host,
+        port: fbOptions.port,
+        database: fbOptions.database,
+        user: fbOptions.user,
+        hasPassword: !!fbOptions.password
+    };
+}
+
+function normalizeDbConfig(input, current) {
+    const host = String((input && input.host) || '').trim();
+    const database = String((input && input.database) || '').trim();
+    const port = parseInt(input && input.port, 10);
+    if (!host) throw httpError(400, 'Informe o host');
+    if (!database) throw httpError(400, 'Informe o caminho da base');
+    if (!(port > 0 && port < 65536)) throw httpError(400, 'Porta inválida');
+    const user = String((input && input.user) || '').trim() || current.user;
+    // senha vazia = mantem a atual
+    const password = input && input.password ? String(input.password) : current.password;
+    return { host, port, database, user, password };
+}
+
+function testDbConfig(input) {
+    const c = normalizeDbConfig(input, fbOptions);
+    return new Promise((resolve, reject) => {
+        let done = false;
+        const timer = setTimeout(() => {
+            if (!done) { done = true; reject(httpError(400, 'Tempo esgotado ao conectar (10s)')); }
+        }, 10000);
+        Firebird.attach({ ...fbOptions, ...c }, (err, conn) => {
+            if (done) { if (conn) { try { conn.detach(); } catch (e) { /* ignora */ } } return; }
+            done = true;
+            clearTimeout(timer);
+            if (err) return reject(httpError(400, 'Falha ao conectar: ' + err.message));
+            conn.query('SELECT 1 FROM RDB$DATABASE', [], (qErr) => {
+                try { conn.detach(); } catch (e) { /* ignora */ }
+                if (qErr) return reject(httpError(400, 'Conectou, mas a consulta falhou: ' + qErr.message));
+                resolve({ ok: true });
+            });
+        });
+    });
+}
+
+async function saveDbConfig(input) {
+    const c = normalizeDbConfig(input, fbOptions);
+    await testDbConfig(input);
+    let file = {};
+    try { if (fs.existsSync(CFG_PATH)) file = JSON.parse(fs.readFileSync(CFG_PATH, 'utf8')); } catch (e) { /* recria */ }
+    file.dbConn = `${c.host}/${c.port}:${c.database}`;
+    file.user = c.user;
+    file.password = c.password;
+    fs.mkdirSync(path.dirname(CFG_PATH), { recursive: true });
+    fs.writeFileSync(CFG_PATH, JSON.stringify(file, null, 2), 'utf8');
+    Object.assign(fbOptions, c);
+    resetPool();
+    return getDbConfig();
+}
+
 let pool = null;
 function getPool() {
     if (!pool) pool = Firebird.pool(DB_POOL, fbOptions);
@@ -270,6 +332,28 @@ function execute(sql) {
 }
 
 // --- Audit Helper ---
+// O ERP grava a auditoria com descricao de campo propria, datas dd/mm/aaaa, status como codigo (A/P/I)
+// e numeros sem zeros a direita. Normalizar aqui mantem as telas de auditoria do ERP coerentes.
+const AUD_CAMPO_DESC = {
+    PRD_STATUS: 'Status', PRD_PRECO_VENDA: 'Preço Venda', PRD_PRECO_MINIMO: 'Preço Mínimo',
+    PRD_VALOR_PROM: 'Preço Promoção', PRD_DT_INI_PROM: 'Data Inicio Promoção', PRD_DT_FIM_PROM: 'Data Fim Promoção',
+    PRD_TIPO_VALOR_PROM: 'Tipo Valor Promoção', PRD_UN_VENDA: 'Unidade Principal', PRD_DESCRICAO: 'Descrição',
+    PRD_OBSERVACAO: 'Observação'
+};
+const AUD_TABELA_DESC = { TB_PRODUTO: 'PRODUTOS', TB_PRODUTO_ESTOQUE: 'ESTOQUE DO PRODUTO' };
+function audValor(campo, v) {
+    if (v === null || v === undefined) return '';
+    const t = String(v).trim();
+    if (t === '') return '';
+    if (/^PRD_DT_(INI|FIM)_PROM$/.test(campo)) {
+        const m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        return m ? `${m[3]}/${m[2]}/${m[1]}` : t;
+    }
+    if (campo === 'PRD_STATUS') return /^ativo$/i.test(t) ? 'A' : (/^inativo$/i.test(t) ? 'I' : t);
+    if (/^(PRD_PRECO_VENDA|PRD_PRECO_MINIMO|PRD_VALOR_PROM)$/.test(campo) && isFinite(parseFloat(t))) return String(parseFloat(t));
+    if (campo === 'PRD_VALOR_PROM' && (/desativ/i.test(t) || parseFloat(t) === 0)) return '';
+    return t;
+}
 async function logAudit({ empresa = 1, tabela = 'TB_PRODUTO', idRegistro, acao = 'A', descRegistro = '', usuario = 1, changes = [] }) {
     if (!changes || changes.length === 0) return;
 
@@ -290,14 +374,14 @@ async function logAudit({ empresa = 1, tabela = 'TB_PRODUTO', idRegistro, acao =
         let script = `
 UPDATE TB_SEQUENCIAL SET SEQ_SEQUENCIAL = SEQ_SEQUENCIAL + 1 WHERE SEQ_TABELA = 'TB_AUDITORIA';
 INSERT INTO TB_AUDITORIA (AUD_EMPRESA, AUD_TABELA, AUD_ID_REGISTRO, AUD_SEQUENCIA, AUD_TABELA_DESC, AUD_ACAO, AUD_DT_LANCAMENTO, AUD_DT_ACAO, AUD_USUARIO, AUD_DESC_REGISTRO, AUD_VERSAO, AUD_VERSAO_SERVIDOR)
-VALUES (${emp}, '${safeTabela}', '${safeId}', ${seqSel}, '${safeTabela}', '${safeAcao}', CURRENT_TIMESTAMP, CURRENT_DATE, ${usr}, '${safeDesc}', 'Upweb', 'Upweb');
+VALUES (${emp}, '${safeTabela}', '${safeId}', ${seqSel}, '${sqlStr(AUD_TABELA_DESC[tabela] || tabela, 50)}', '${safeAcao}', CURRENT_TIMESTAMP, CURRENT_DATE, ${usr}, '${safeDesc}', 'Upweb', 'Upweb');
 `;
 
         for (const chg of changes) {
             const campo = sqlStr(chg.campo, 50);
-            const campoDesc = sqlStr(chg.campoDesc || chg.campo, 80);
-            const vAntigo = sqlStr(chg.antigo, 200);
-            const vNovo = sqlStr(chg.novo, 200);
+            const campoDesc = sqlStr(AUD_CAMPO_DESC[chg.campo] || chg.campoDesc || chg.campo, 80);
+            const vAntigo = sqlStr(audValor(chg.campo, chg.antigo), 200);
+            const vNovo = sqlStr(audValor(chg.campo, chg.novo), 200);
 
             script += `
 INSERT INTO TB_AUDITORIA_ITEM (AUDI_EMPRESA, AUDI_TABELA, AUDI_ID_REGISTRO, AUDI_AUDITORIA, AUDI_CAMPO, AUDI_CAMPO_DESC, AUDI_VALOR_ANTIGO, AUDI_VALOR_NOVO)
@@ -353,7 +437,7 @@ async function getProducts({ search = '', status = 'TODOS', promo = 'TODOS', sto
     if (promo === 'EM_PROMOCAO') {
         whereClauses.push(`(P.PRD_VALOR_PROM IS NOT NULL AND P.PRD_VALOR_PROM > 0 AND (P.PRD_DT_INI_PROM IS NULL OR P.PRD_DT_INI_PROM <= CURRENT_DATE) AND (P.PRD_DT_FIM_PROM IS NULL OR P.PRD_DT_FIM_PROM >= CURRENT_DATE))`);
     } else if (promo === 'REGULAR') {
-        whereClauses.push(`(P.PRD_VALOR_PROM IS NULL OR P.PRD_VALOR_PROM = 0 OR (P.PRD_DT_FIM_PROM IS NOT NULL AND P.PRD_DT_FIM_PROM < CURRENT_DATE))`);
+        whereClauses.push(`NOT (P.PRD_VALOR_PROM IS NOT NULL AND P.PRD_VALOR_PROM > 0 AND (P.PRD_DT_INI_PROM IS NULL OR P.PRD_DT_INI_PROM <= CURRENT_DATE) AND (P.PRD_DT_FIM_PROM IS NULL OR P.PRD_DT_FIM_PROM >= CURRENT_DATE))`);
     }
 
     if (stock === 'BAIXO') {
@@ -594,9 +678,14 @@ async function getOriginalImage(prdId, knownStamp) {
 
     // 1. PRD_FOTO aponta para um arquivo fisico
     const fotoPath = row.PRD_FOTO ? String(row.PRD_FOTO).trim() : '';
-    if (fotoPath && fs.existsSync(fotoPath)) {
+    if (fotoPath) {
         const ext = path.extname(fotoPath).toLowerCase();
-        return { path: fotoPath, type: ext === '.png' ? 'image/png' : 'image/jpeg' };
+        try {
+            const st = fs.statSync(fotoPath);
+            if (['.jpg', '.jpeg', '.png'].includes(ext) && st.isFile() && st.size <= 25 * 1024 * 1024) {
+                return { path: fotoPath, type: ext === '.png' ? 'image/png' : 'image/jpeg' };
+            }
+        } catch (e) { /* arquivo inexistente: segue para o BLOB */ }
     }
 
     // 2. BLOB PRD_IMAGEM
@@ -672,6 +761,7 @@ async function saveProductImage(prdId, buffer) {
 
 // --- Updates with ERP Audit Trail ---
 async function updateProductStatus(prdId, newStatus) {
+    if (newStatus !== 'A' && newStatus !== 'I') throw httpError(400, "Status deve ser 'A' ou 'I'");
     const current = await getProductById(prdId);
     if (!current) throw httpError(404, 'Produto não encontrado');
     if (current.status === newStatus) return current;
@@ -823,13 +913,34 @@ WHERE PRD_ID = ${prdId};
     return getProductById(prdId);
 }
 
+// Estoque atual lido DENTRO da trava (mesma linha/local que buildStockSql atualiza)
+async function estoqueAtual(prdId) {
+    const r = await query(`SELECT FIRST 1 PRDE_ESTOQUE FROM TB_PRODUTO_ESTOQUE WHERE PRDE_PRODUTO = ${prdId} AND PRDE_EMPRESA = 1 ORDER BY PRDE_LOCAL`);
+    return r.length ? (parseFloat(r[0].PRDE_ESTOQUE) || 0) : 0;
+}
+
+// O ID do movimento e MAX+1: se o ERP gravar no mesmo instante a chave colide; tenta de novo (recalcula o MAX)
+const PK_ERR_RE = /violation of (PRIMARY|UNIQUE)|PRIMARY or UNIQUE|unique key|duplicate/i;
+async function executeComRetentativa(buildSql, tentativas = 3) {
+    let ultimo;
+    for (let i = 0; i < tentativas; i++) {
+        try { return await execute(await buildSql()); } catch (e) {
+            ultimo = e;
+            if (!PK_ERR_RE.test(String(e && e.message))) throw e;
+        }
+    }
+    throw ultimo;
+}
+
 // Monta o SQL de ajuste de estoque + movimento. Deve rodar dentro de withLock().
 // Atualiza apenas a linha de estoque existente (local detectado), nunca todas as linhas da empresa.
 async function buildStockSql(prdId, newStock, diff, motivo) {
     const existRows = await query(`SELECT FIRST 1 PRDE_LOCAL FROM TB_PRODUTO_ESTOQUE WHERE PRDE_PRODUTO = ${prdId} AND PRDE_EMPRESA = 1 ORDER BY PRDE_LOCAL`);
     let sql = '';
+    let localMov = 1; // o movimento vai para o MESMO local do saldo atualizado
     if (existRows.length > 0) {
         const local = parseInt(existRows[0].PRDE_LOCAL, 10);
+        if (!isNaN(local)) localMov = local;
         const localCond = isNaN(local) ? 'PRDE_LOCAL IS NULL' : `PRDE_LOCAL = ${local}`;
         sql += `
 UPDATE TB_PRODUTO_ESTOQUE
@@ -847,19 +958,28 @@ VALUES (1, ${prdId}, 1, ${newStock.toFixed(4)}, 0, CURRENT_TIMESTAMP);
     if (Math.abs(diff) > 0.0001) {
         const tipo = diff >= 0 ? 'ENT' : 'SAI';
         const safeMotivo = sqlStr(motivo || 'Ajuste de estoque via Upweb', 150);
-        // IDs calculados no proprio INSERT (mesma transacao do UPDATE acima)
+        // O ERP numera os movimentos pelo gerador GEN_TB_PRODUTO_MOVIMENTO (e grava PRDM_SEQUENCIA = PRDM_ID).
+        // Usar o MESMO gerador evita que o proximo movimento do ERP (venda/compra) colida com o nosso id.
+        let movId = null;
+        try {
+            const g = await query('SELECT GEN_ID(GEN_TB_PRODUTO_MOVIMENTO, 1) AS ID FROM RDB$DATABASE');
+            const v = parseInt(g[0].ID, 10);
+            if (Number.isInteger(v) && v > 0) movId = v;
+        } catch (e) { /* sem gerador: usa MAX+1 abaixo */ }
+        const idExpr = movId !== null ? String(movId) : '(SELECT COALESCE(MAX(PRDM_ID), 0) + 1 FROM TB_PRODUTO_MOVIMENTO)';
+        const seqExpr = movId !== null ? String(movId) : `(SELECT COALESCE(MAX(PRDM_SEQUENCIA), 0) + 1 FROM TB_PRODUTO_MOVIMENTO WHERE PRDM_PRODUTO = ${prdId})`;
         sql += `
 INSERT INTO TB_PRODUTO_MOVIMENTO (
     PRDM_ID, PRDM_EMPRESA, PRDM_PRODUTO, PRDM_SEQUENCIA,
     PRDM_TIPO, PRDM_QUANTIDADE, PRDM_ORIGEM_MOVIMENTO,
     PRDM_ORIGEM_NUMERO, PRDM_HISTORICO, PRDM_DT_MOVIMENTO,
-    PRDM_DT_LANCAMENTO, PRDM_LOCAL, PRDM_EMPRESA_ORIGEM, PRDM_USUARIO
+    PRDM_DT_LANCAMENTO, PRDM_LOCAL, PRDM_EMPRESA_ORIGEM, PRDM_USUARIO, PRDM_CUSTO_UN, PRDM_CUSTO
 ) VALUES (
-    (SELECT COALESCE(MAX(PRDM_ID), 0) + 1 FROM TB_PRODUTO_MOVIMENTO), 1, ${prdId},
-    (SELECT COALESCE(MAX(PRDM_SEQUENCIA), 0) + 1 FROM TB_PRODUTO_MOVIMENTO WHERE PRDM_PRODUTO = ${prdId}),
+    ${idExpr}, 1, ${prdId},
+    ${seqExpr},
     '${tipo}', ${Math.abs(diff).toFixed(4)}, 'Upweb',
     ${prdId}, '${safeMotivo}', CURRENT_DATE,
-    CURRENT_TIMESTAMP, 1, 1, 1
+    CURRENT_TIMESTAMP, ${localMov}, 1, 1, 0, 0
 );
 `;
     }
@@ -874,12 +994,12 @@ async function updateProductStock(prdId, newStock, motivo = 'Ajuste de estoque v
     const pStock = parseFloat(newStock);
     if (isNaN(pStock)) throw httpError(400, 'Estoque inválido');
 
-    const oldStock = current.estoque;
-    const diff = pStock - oldStock;
-
+    let oldStock = current.estoque;
     await withLock(async () => {
-        const sql = await buildStockSql(prdId, pStock, diff, motivo);
-        await execute(sql);
+        // le o estoque dentro da trava: edicoes simultaneas nao geram movimento com diferenca errada
+        oldStock = await estoqueAtual(prdId);
+        const diff = pStock - oldStock;
+        await executeComRetentativa(() => buildStockSql(prdId, pStock, diff, motivo));
     });
 
     // Audit with Upweb
@@ -926,6 +1046,7 @@ async function quickEditProduct(prdId, { precoVenda, precoMinimo, emPromocao, pr
     // 2. Preço de venda & mínimo
     if (precoVenda !== undefined) {
         const pV = parseFloat(precoVenda);
+        if (!isNaN(pV) && pV < 0) throw httpError(400, 'Preço de venda inválido');
         if (!isNaN(pV) && Math.abs(pV - current.precoVenda) > 0.001) {
             prodUpdates.push(`PRD_PRECO_VENDA = ${pV.toFixed(4)}`);
             changes.push({ campo: 'PRD_PRECO_VENDA', campoDesc: 'Preço Venda', antigo: current.precoVenda.toFixed(2), novo: pV.toFixed(2) });
@@ -933,6 +1054,7 @@ async function quickEditProduct(prdId, { precoVenda, precoMinimo, emPromocao, pr
     }
     if (precoMinimo !== undefined) {
         const pM = parseFloat(precoMinimo);
+        if (!isNaN(pM) && pM < 0) throw httpError(400, 'Preço mínimo inválido');
         if (!isNaN(pM) && Math.abs(pM - current.precoMinimo) > 0.001) {
             prodUpdates.push(`PRD_PRECO_MINIMO = ${pM.toFixed(4)}`);
             changes.push({ campo: 'PRD_PRECO_MINIMO', campoDesc: 'Preço Mínimo', antigo: current.precoMinimo.toFixed(2), novo: pM.toFixed(2) });
@@ -949,12 +1071,18 @@ async function quickEditProduct(prdId, { precoVenda, precoMinimo, emPromocao, pr
         } else if (precoPromocao !== undefined) {
             const pP = parseFloat(precoPromocao);
             if (!isNaN(pP) && pP > 0) {
+                const pVfinal = (precoVenda !== undefined && isFinite(parseFloat(precoVenda))) ? parseFloat(precoVenda) : current.precoVenda;
+                if (pVfinal > 0 && pP >= pVfinal) throw httpError(400, 'O preço promocional deve ser menor que o preço de venda');
                 prodUpdates.push(`PRD_VALOR_PROM = ${pP.toFixed(4)}`);
                 changes.push({ campo: 'PRD_VALOR_PROM', campoDesc: 'Preço Promocional', antigo: current.precoPromocao.toFixed(2), novo: pP.toFixed(2) });
                 const dI = sqlDate(dtInicioProm);
                 const dF = sqlDate(dtFimProm);
                 if (dI) prodUpdates.push(`PRD_DT_INI_PROM = '${dI}'`);
                 if (dF) prodUpdates.push(`PRD_DT_FIM_PROM = '${dF}'`);
+                // reativar sem informar o fim: nao herda uma data de termino ja vencida (a promocao nasceria expirada)
+                if (!dF && current.dtFimProm && String(current.dtFimProm).substring(0, 10) < hojeStr()) {
+                    prodUpdates.push('PRD_DT_FIM_PROM = NULL');
+                }
             }
         }
     }
@@ -991,9 +1119,10 @@ WHERE PRDP_PRODUTO = ${prdId} AND PRDP_EMPRESA = 1;
 
     await withLock(async () => {
         if (stockChange) {
-            sql += await buildStockSql(prdId, stockChange.nEstoque, stockChange.diff, 'Ajuste de estoque via Upweb');
-        }
-        if (sql.trim().length > 0) {
+            const atual = await estoqueAtual(prdId);
+            const base = sql;
+            await executeComRetentativa(async () => base + await buildStockSql(prdId, stockChange.nEstoque, stockChange.nEstoque - atual, 'Ajuste de estoque via Upweb'));
+        } else if (sql.trim().length > 0) {
             await execute(sql);
         }
     });
@@ -1175,8 +1304,8 @@ WHERE P.PRD_STATUS IN ('A', 'P') AND P.PRD_TIPO_PRODUTO IN ('N', 'P', 'T') AND (
         emPromocao: parseInt(promoRow[0]?.PROMOS || 0, 10),
         estoqueBaixo: parseInt(estoqueBaixoRow[0]?.BAIXO || 0, 10),
         databaseConnected: true,
-        databaseFile: 'DADOS.FDB',
-        firebirdVersion: 'Firebird 5.0 (Port 3060)'
+        databaseFile: path.basename(String(fbOptions.database || '').replace(/\\/g, '/')) || 'DADOS.FDB',
+        firebirdVersion: `Firebird (${fbOptions.host}:${fbOptions.port})`
     };
 }
 
@@ -1381,11 +1510,18 @@ async function updateOrderStatus(orderId, action) {
     const id = parseInt(orderId, 10);
     if (!id) throw httpError(400, 'ID do pedido inválido');
 
+    const existe = await query(`SELECT PEV_STATUS FROM TB_PEDIDO_VENDA WHERE PEV_ID = ${id}`);
+    if (existe.length === 0) throw httpError(404, 'Pedido não encontrado');
+    if (action !== 'REABRIR' && String(existe[0].PEV_STATUS || '').toUpperCase() === 'C') {
+        throw httpError(400, 'Pedido cancelado não pode ser alterado');
+    }
+
+    // COALESCE: repetir a acao nao sobrescreve o horario original (preserva o tempo de preparo)
     let sql = '';
     if (action === 'PRONTO') {
-        sql = `UPDATE TB_PEDIDO_VENDA SET PEV_DT_HR_PRONTO = CURRENT_TIMESTAMP WHERE PEV_ID = ${id}`;
+        sql = `UPDATE TB_PEDIDO_VENDA SET PEV_DT_HR_PRONTO = COALESCE(PEV_DT_HR_PRONTO, CURRENT_TIMESTAMP) WHERE PEV_ID = ${id}`;
     } else if (action === 'ENTREGUE') {
-        sql = `UPDATE TB_PEDIDO_VENDA SET PEV_DT_HR_ENTREGUE = CURRENT_TIMESTAMP WHERE PEV_ID = ${id}`;
+        sql = `UPDATE TB_PEDIDO_VENDA SET PEV_DT_HR_ENTREGUE = COALESCE(PEV_DT_HR_ENTREGUE, CURRENT_TIMESTAMP) WHERE PEV_ID = ${id}`;
     } else if (action === 'REABRIR') {
         sql = `UPDATE TB_PEDIDO_VENDA SET PEV_DT_HR_PRONTO = NULL, PEV_DT_HR_ENTREGUE = NULL WHERE PEV_ID = ${id}`;
     } else {
@@ -1402,11 +1538,69 @@ async function assignOrderPassword(orderId, senha) {
     // PEV_SENHA e INTEGER no banco
     const senhaStr = String(senha === null || senha === undefined ? '' : senha).trim();
     if (!/^\d{1,9}$/.test(senhaStr)) throw httpError(400, 'A senha deve ser numérica');
+    const existe = await query(`SELECT 1 AS OK FROM TB_PEDIDO_VENDA WHERE PEV_ID = ${id}`);
+    if (existe.length === 0) throw httpError(404, 'Pedido não encontrado');
     await execute(`UPDATE TB_PEDIDO_VENDA SET PEV_SENHA = ${parseInt(senhaStr, 10)} WHERE PEV_ID = ${id}`);
     return { id, senha: senhaStr.padStart(2, '0'), success: true };
 }
 
-async function createQuickTicket({ nome = '', comanda = '', mesa = '', senha = null, itens = [], valorTotal = 0 }) {
+// --- Padroes do PDV (derivados dos pedidos reais do ERP; evita "chumbar" cliente/natureza/caixa) ---
+let pdvCache = null;
+async function pdvDefaults() {
+    if (pdvCache && Date.now() - pdvCache.t < 10 * 60 * 1000) return pdvCache.v;
+    const v = { cliente: null, guidCliente: null, natureza: 102, caixa: 1, local: 1, frete: 9, usuario: 1 };
+    try {
+        const r = await query(`
+SELECT FIRST 1 PEV_CLIENTE, PEV_NATUREZA_OPERACAO, PEV_CAIXA, PEV_LOCAL_ESTOQUE, PEV_TIPO_FRETE, PEV_USUARIO, COUNT(*) AS N
+FROM TB_PEDIDO_VENDA
+WHERE PEV_STATUS = 'F' AND PEV_CLIENTE IS NOT NULL AND PEV_LOCAL_ESTOQUE IS NOT NULL AND PEV_USUARIO IS NOT NULL
+  AND PEV_DT_EMISSAO >= DATEADD(-90 DAY TO (SELECT MAX(PEV_DT_EMISSAO) FROM TB_PEDIDO_VENDA WHERE PEV_STATUS = 'F'))
+GROUP BY PEV_CLIENTE, PEV_NATUREZA_OPERACAO, PEV_CAIXA, PEV_LOCAL_ESTOQUE, PEV_TIPO_FRETE, PEV_USUARIO
+ORDER BY 7 DESC`);
+        if (r[0]) {
+            const num = (x, d) => (x !== null && x !== undefined && isFinite(parseInt(x, 10)) ? parseInt(x, 10) : d);
+            v.cliente = num(r[0].PEV_CLIENTE, null);
+            v.natureza = num(r[0].PEV_NATUREZA_OPERACAO, v.natureza);
+            v.caixa = num(r[0].PEV_CAIXA, v.caixa);
+            v.local = num(r[0].PEV_LOCAL_ESTOQUE, v.local);
+            v.frete = num(r[0].PEV_TIPO_FRETE, v.frete);
+            v.usuario = num(r[0].PEV_USUARIO, v.usuario);
+            if (v.cliente !== null) {
+                const g = await query(`SELECT FIRST 1 PEV_GUID_CLIENTE FROM TB_PEDIDO_VENDA WHERE PEV_CLIENTE = ${v.cliente} AND PEV_GUID_CLIENTE IS NOT NULL ORDER BY PEV_ID DESC`);
+                if (g[0] && /^[0-9A-Fa-f-]{36}$/.test(String(g[0].PEV_GUID_CLIENTE))) v.guidCliente = String(g[0].PEV_GUID_CLIENTE);
+            }
+        }
+    } catch (e) {
+        console.warn('Padroes do PDV (usando valores basicos):', e.message);
+    }
+    pdvCache = { t: Date.now(), v };
+    return v;
+}
+
+// Executa varias instrucoes numa unica transacao devolvendo o resultado do callback (rollback em qualquer erro)
+function runTransaction(work) {
+    return withConn((conn) => new Promise((resolve, reject) => {
+        conn.transaction(Firebird.ISOLATION_READ_COMMITTED, (err, tr) => {
+            if (err) return reject(err);
+            const q = (sql, params = []) => new Promise((res, rej) => tr.query(sql, params, (e, r) => (e ? rej(e) : res(r))));
+            (async () => {
+                let out;
+                try {
+                    out = await work(q);
+                } catch (e) {
+                    return tr.rollback(() => reject(e));
+                }
+                tr.commit((e) => (e ? reject(e) : resolve(out)));
+            })();
+        });
+    }));
+}
+
+const guidNovo = () => require('crypto').randomUUID().toUpperCase();
+
+// Cria um pedido "aberto" (status A) com os MESMOS campos que o PDV do ERP grava numa comanda aberta,
+// para que o caixa consiga abrir/finalizar o pedido no ERP (cliente, natureza, estoque, totais, GUIDs...).
+async function createQuickTicket({ nome = '', comanda = '', mesa = '', senha = null, itens = [], valorTotal = 0, desconto = 0 }) {
     return withLock(async () => {
         const seqCond = `SEQ_TABELA = 'TB_PEDIDO_VENDA' AND (SEQ_EMPRESA = 1 OR SEQ_EMPRESA IS NULL)`;
 
@@ -1436,49 +1630,132 @@ async function createQuickTicket({ nome = '', comanda = '', mesa = '', senha = n
                 valorUnitario: isFinite(unit) && unit >= 0 ? unit : 0
             };
         });
-        const total = itensOk.length > 0
+        const subtotal = itensOk.length > 0
             ? itensOk.reduce((s, i) => s + i.quantidade * i.valorUnitario, 0)
             : (isFinite(parseFloat(valorTotal)) ? parseFloat(valorTotal) : 0);
 
-        // UPDATE primeiro (trava a linha); o INSERT le o valor ja incrementado
-        const idSel = `(SELECT SEQ_SEQUENCIAL FROM TB_SEQUENCIAL WHERE ${seqCond})`;
-        let script = `
-UPDATE TB_SEQUENCIAL SET SEQ_SEQUENCIAL = SEQ_SEQUENCIAL + 1 WHERE ${seqCond};
-INSERT INTO TB_PEDIDO_VENDA (
-    PEV_EMPRESA, PEV_ID, PEV_DT_EMISSAO, PEV_DT_LANCAMENTO, PEV_VALOR_TOTAL,
-    PEV_STATUS, PEV_SENHA, PEV_NOME, PEV_COMANDA, PEV_MESA, PEV_USUARIO
-) VALUES (
-    1, ${idSel}, CURRENT_DATE, CURRENT_TIMESTAMP, ${total.toFixed(4)},
-    'A', ${senhaNum}, '${safeNome}', '${safeComanda}', ${mesaSql}, 1
-);
-`;
+        // Desconto (cupom): validado no servidor; o total nunca fica negativo
+        const descontoOk = isFinite(parseFloat(desconto)) && parseFloat(desconto) > 0 ? Math.min(parseFloat(desconto), subtotal) : 0;
+        const total = Math.max(0, subtotal - descontoOk);
 
-        itensOk.forEach((item, idx) => {
-            const tot = item.quantidade * item.valorUnitario;
-            script += `
-INSERT INTO TB_PEDIDO_VENDA_ITEM (
-    PEVI_EMPRESA, PEVI_PEDIDO_VENDA, PEVI_SEQUENCIA, PEVI_PRODUTO,
-    PEVI_DESCRICAO, PEVI_QUANTIDADE, PEVI_VALOR_UNITARIO, PEVI_VALOR_TOTAL
+        // Dados do cadastro de cada produto (unidade, tipo e custo) e padroes do PDV
+        const def = await pdvDefaults();
+        if (mesaStr !== '') {
+            const m = await query(`SELECT 1 AS OK FROM TB_MESA WHERE MSA_ID = ${parseInt(mesaStr, 10)}`);
+            if (m.length === 0) throw httpError(400, `Mesa ${parseInt(mesaStr, 10)} não está cadastrada no ERP`);
+        }
+        const prodIds = [...new Set(itensOk.map((i) => i.produtoId).filter((n) => n > 0))];
+        const prod = {};
+        if (prodIds.length > 0) {
+            const rows = await query(`SELECT PRD_ID, PRD_UN_VENDA, PRD_TIPO_PRODUTO, PRD_PRECO_CUSTO FROM TB_PRODUTO WHERE PRD_ID IN (${prodIds.join(',')})`);
+            rows.forEach((r) => { prod[parseInt(r.PRD_ID, 10)] = r; });
+        }
+        const semProduto = itensOk.find((i) => !prod[i.produtoId]);
+        if (semProduto) throw httpError(400, `Produto ${semProduto.produtoId || '(sem código)'} não encontrado no cadastro`);
+
+        const n2 = (v) => Number(v).toFixed(4);
+        const q1 = (s) => `'${sqlStr(s, 100)}'`;
+        const clienteSql = def.cliente === null ? 'NULL' : String(def.cliente);
+        const guidClienteSql = def.guidCliente ? `'${def.guidCliente}'` : 'NULL';
+
+        const pedId = await runTransaction(async (q) => {
+            // UPDATE primeiro (trava a linha); o numero lido e unico mesmo com o ERP gravando junto
+            await q(`UPDATE TB_SEQUENCIAL SET SEQ_SEQUENCIAL = SEQ_SEQUENCIAL + 1 WHERE ${seqCond}`);
+            const seq = await q(`SELECT SEQ_SEQUENCIAL FROM TB_SEQUENCIAL WHERE ${seqCond}`);
+            const id = parseInt(seq && seq[0] && seq[0].SEQ_SEQUENCIAL, 10);
+            if (!Number.isInteger(id)) throw new Error('Sequencial de pedidos nao encontrado (TB_SEQUENCIAL)');
+
+            await q(`
+INSERT INTO TB_PEDIDO_VENDA (
+    PEV_EMPRESA, PEV_ID, PEV_DT_EMISSAO, PEV_CLIENTE, PEV_DT_LANCAMENTO, PEV_USUARIO,
+    PEV_SUB_TOTAL, PEV_VALOR_TOTAL, PEV_VALOR_DESCONTO, PEV_VALOR_ACRESCIMO, PEV_STATUS, PEV_QTDE_ITENS,
+    PEV_DT_ENTREGA, PEV_AJUSTE, PEV_TIPO_FRETE, PEV_VOLUME, PEV_NATUREZA_OPERACAO,
+    PEV_ACRESC_DESC_NF, PEV_TIPO_DESCONTO, PEV_DESCONTO, PEV_DESTACAR_TRANSP, PEV_SELECIONADO, PEV_CAIXA,
+    PEV_TIPO_ACRESCIMO, PEV_PRECO_VENDA_CUSTO, PEV_VALOR_TOTAL_RECEBER, PEV_VALOR_DIFERENCA,
+    PEV_GERA_FINANCEIRO, PEV_TIPO_TELA, PEV_MOV_ESTOQUE, PEV_NOME, PEV_CLIENTE_NAO_REG, PEV_COMANDA, PEV_MESA,
+    PEV_DT_HR_ATEDIMENTO, PEV_DELIVERY, PEV_AGUARDANDO, PEV_VENDER_CREDITO, PEV_LOCAL_ESTOQUE, PEV_QTDE_PESSOAS,
+    PEV_VALOR_PESSOA, PEV_BALCAO, PEV_ABERTO, PEV_ALTERAR_TABELA, PEV_VALOR_PEDIDO, PEV_GUID, PEV_GUID_CLIENTE,
+    PEV_ULTIMA_ALTERACAO, PEV_MOV_ESTOQUE_VENDA, PEV_SENHA,
+    PEV_VALOR_COMISSAO, PEV_LIMITE_CREDITO, PEV_LIMITE_DISPONIVEL, PEV_LIMITE_UTILIZADO, PEV_TOTAL_NOTA,
+    PEV_VALOR_TOTAL_RECEBIDO, PEV_VALOR_IMPOSTO, PEV_PESO_LIQUIDO, PEV_PESO_BRUTO, PEV_METRAGEM_CUBICA,
+    PEV_DESP_ACESSORIA, PEV_SALDO_FLEX, PEV_VALOR_TOTAL_PARCELADO, PEV_PLANO_CONTAS, PEV_IND_PRESENCA,
+    PEV_VALOR_DESCARTE, PEV_VALOR_COMPL_ADD, PEV_VALOR_COMPL_RET, PEV_TOTAL_TX_SERV, PEV_DURACAO_PEDIDO,
+    PEV_VALOR_IPI, PEV_VALOR_ST, PEV_VALOR_ICMS_DESON, PEV_VALOR_RETENCAO_TRIB, PEV_TOTAL_CASHBACK,
+    PEV_VALOR_PROMOCAO, PEV_NAO_APLICAR_PROMOCAO, PEV_VALOR_ACRES_FIN, PEV_VALOR_DESC_FIN, PEV_VALOR_ICMS,
+    PEV_VALOR_ICMS_DIFAL, PEV_REGRA_TRIBUTARIA
 ) VALUES (
-    1, ${idSel}, ${idx + 1}, ${item.produtoId},
-    '${sqlStr(item.descricao, 100)}', ${item.quantidade}, ${item.valorUnitario}, ${tot}
-);
-`;
+    1, ${id}, CURRENT_DATE, ${clienteSql}, CURRENT_TIMESTAMP, ${def.usuario},
+    ${n2(subtotal)}, ${n2(total)}, ${n2(descontoOk)}, 0, 'A', ${itensOk.length},
+    CURRENT_DATE, 0, ${def.frete}, 1, ${def.natureza},
+    'T', 'V', ${n2(descontoOk)}, 'N', 'N', ${def.caixa},
+    'V', 'V', ${n2(total)}, ${n2(-total)},
+    'S', 'T', 'S', ${q1(safeNome)}, 'S', ${q1(safeComanda)}, ${mesaSql},
+    CURRENT_TIMESTAMP, 'N', 'N', 'N', ${def.local}, 1,
+    ${n2(total)}, 'N', 'N', 'S', ${n2(subtotal)}, '${guidNovo()}', ${guidClienteSql},
+    CURRENT_TIMESTAMP, 'F', ${senhaNum},
+    0, -1, 0, 1, 0,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1,
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0,
+    0, 'N', 0, 0, 0,
+    0, 0
+)`);
+
+            // desconto do cupom rateado entre os itens (a ultima linha absorve o centavo de arredondamento)
+            let restante = Math.round(descontoOk * 100) / 100;
+            for (let idx = 0; idx < itensOk.length; idx++) {
+                const item = itensOk[idx];
+                const bruto = item.quantidade * item.valorUnitario;
+                let rateio = 0;
+                if (restante > 0 && subtotal > 0) {
+                    rateio = idx === itensOk.length - 1
+                        ? restante
+                        : Math.min(restante, Math.round(((descontoOk * bruto) / subtotal) * 100) / 100);
+                    restante = Math.round((restante - rateio) * 100) / 100;
+                }
+                const info = prod[item.produtoId] || {};
+                const un = sqlStr(info.PRD_UN_VENDA || 'UN', 6);
+                const tipoProd = sqlStr(info.PRD_TIPO_PRODUTO || 'N', 1);
+                const custo = isFinite(parseFloat(info.PRD_PRECO_CUSTO)) ? parseFloat(info.PRD_PRECO_CUSTO) : 0;
+                await q(`
+INSERT INTO TB_PEDIDO_VENDA_ITEM (
+    PEVI_EMPRESA, PEVI_PEDIDO_VENDA, PEVI_SEQUENCIA, PEVI_PRODUTO, PEVI_QUANTIDADE, PEVI_UN_VENDA,
+    PEVI_VALOR_UNITARIO, PEVI_VALOR_DESCONTO, PEVI_VALOR_TOTAL, PEVI_VALOR_ACRESCIMO, PEVI_VALOR_FRETE,
+    PEVI_QTDE_ESTOQUE, PEVI_SUB_TOTAL, PEVI_VALOR_COMISSAO, PEVI_DESCRICAO, PEVI_DESCONTO, PEVI_ACRESCIMO,
+    PEVI_COMISSAO, PEVI_QTDE_CONVERSAO, PEVI_TIPO_PRODUTO, PEVI_QUANTIDADE_NF, PEVI_VALOR_UNITARIO_NF,
+    PEVI_VALOR_TOTAL_NF, PEVI_DESC_RATEADO, PEVI_ACRESC_RATEADO, PEVI_TIPO_DESCONTO, PEVI_TIPO_ACRESCIMO,
+    PEVI_APLICA_DESCONTO, PEVI_UNITARIO_FLEX, PEVI_TOTAL_FLEX, PEVI_SALDO_FLEX, PEVI_STATUS_VALOR,
+    PEVI_COD_DIGITADO, PEVI_ORIGEM_CODIGO, PEVI_VOLUME_ITEM, PEVI_VOLUME, PEVI_DT_LANCAMENTO,
+    PEVI_IMPRESSO, PEVI_RECENTE, PEVI_ENTREGUE, PEVI_SISTEMA, PEVI_STATUS_FLEX, PEVI_VALOR_VOLUME,
+    PEVI_VALOR_CUSTO_UNITARIO, PEVI_APLICAR_TX_SERVICO, PEVI_VARIACAO, PEVI_LOCAL_ESTOQUE, PEVI_GUID,
+    PEVI_METRAGEM, PEVI_PESO_BRUTO, PEVI_PESO_LIQUIDO, PEVI_VALOR_DESCARTE, PEVI_VALOR_COMPL_ADD,
+    PEVI_VALOR_COMPL_RET, PEVI_AREA_CAIXA, PEVI_VALOR_DESC_PROMO, PEVI_QTDE_PROMOCAO, PEVI_IVA, PEVI_IVA_VALOR
+) VALUES (
+    1, ${id}, ${idx + 1}, ${item.produtoId}, ${n2(item.quantidade)}, '${un}',
+    ${n2(item.valorUnitario)}, 0, ${n2(bruto - rateio)}, 0, 0,
+    ${n2(item.quantidade)}, ${n2(bruto)}, 0, ${q1(item.descricao)}, 0, 0,
+    0, 1, '${tipoProd}', ${n2(item.quantidade)}, 0,
+    0, ${n2(rateio)}, 0, 'V', 'V',
+    'S', ${n2(item.valorUnitario)}, ${n2(bruto)}, ${n2(-rateio)}, 'N',
+    '${item.produtoId}', 'ID', 1, 1, CURRENT_TIMESTAMP,
+    'S', 'N', 'N', 'S', 'N', ${n2(bruto)},
+    ${n2(custo)}, 'S', 0, ${def.local}, '${guidNovo()}',
+    0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0
+)`);
+            }
+            return id;
         });
 
-        script += `\nCOMMIT;\nEXIT;\n`;
-        await executeIsqlScript(script);
-
-        const idRows = await query(`SELECT SEQ_SEQUENCIAL FROM TB_SEQUENCIAL WHERE ${seqCond}`);
-        const newId = parseInt(idRows[0]?.SEQ_SEQUENCIAL, 10);
-
         return {
-            id: newId,
+            id: pedId,
             senha: finalSenha,
             nome: safeNome,
             comanda: safeComanda,
             mesa: safeMesa,
             valorTotal: total,
+            desconto: descontoOk,
             itens: itensOk,
             success: true
         };
@@ -1659,7 +1936,9 @@ async function getChangeSignatures() {
     const [o] = await query(`SELECT COUNT(*) AS N, MAX(PEV_ID) AS MX,
         SUM(CASE WHEN PEV_DT_HR_PRONTO IS NULL THEN 0 ELSE 1 END) AS PR,
         SUM(CASE WHEN PEV_DT_HR_ENTREGUE IS NULL THEN 0 ELSE 1 END) AS EN,
-        SUM(CASE WHEN PEV_STATUS = 'C' THEN 1 ELSE 0 END) AS CA
+        SUM(CASE WHEN PEV_STATUS = 'C' THEN 1 ELSE 0 END) AS CA,
+        SUM(COALESCE(PEV_SENHA, 0)) AS SN,
+        SUM(COALESCE(PEV_VALOR_TOTAL, 0)) AS VT
         FROM TB_PEDIDO_VENDA WHERE PEV_DT_EMISSAO = CURRENT_DATE`);
     const [p] = await query(`SELECT COUNT(*) AS N, MAX(PRD_ULTIMA_ALTERACAO) AS U,
         SUM(CASE WHEN PRD_VALOR_PROM > 0 THEN 1 ELSE 0 END) AS PV
@@ -1672,6 +1951,9 @@ async function getChangeSignatures() {
 }
 
 module.exports = {
+    getDbConfig,
+    testDbConfig,
+    saveDbConfig,
     query,
     execute,
     getProducts,
@@ -1701,6 +1983,8 @@ module.exports = {
     runStatements,
     isPromoVigente,
     hexToWin1252,
-    connectionInfo: connInfo
+    get connectionInfo() {
+        return { host: fbOptions.host, port: fbOptions.port, database: fbOptions.database };
+    }
 };
 

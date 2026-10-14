@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const db = require('./db');
+const printer = require('./printer');
 
 const configDir = process.env.CONFIG_DIR || path.join(__dirname, '..', 'config');
 const configFile = path.join(configDir, 'kds.json');
@@ -56,9 +57,10 @@ async function configuracaoPadrao() {
         setores: [s.id],
         grupos: [],
         produtos: [],
+        impressora: '',
         padrao: false
     }));
-    estacoes.push({ id: 'bebidas', nome: 'Bebidas e outros', setores: [], grupos: [], produtos: [], padrao: true });
+    estacoes.push({ id: 'bebidas', nome: 'Bebidas e outros', setores: [], grupos: [], produtos: [], impressora: '', padrao: true });
     return { estacoes };
 }
 
@@ -83,7 +85,8 @@ function validarConfig(cfg) {
         const lista = (v) => (Array.isArray(v) ? [...new Set(v.map((n) => parseInt(n, 10)).filter((n) => Number.isInteger(n)))] : []);
         const padrao = e.padrao === true;
         if (padrao) padroes++;
-        return { id, nome, setores: lista(e.setores), grupos: lista(e.grupos), produtos: lista(e.produtos), padrao };
+        const impressora = String(e.impressora || '').trim().substring(0, 100);
+        return { id, nome, setores: lista(e.setores), grupos: lista(e.grupos), produtos: lista(e.produtos), impressora, padrao };
     });
     if (padroes !== 1) throw httpError(400, 'Marque exatamente uma estação como padrão (recebe o que não casar com nenhuma regra)');
     return { estacoes: out };
@@ -183,6 +186,10 @@ async function carregarPedidos(cfg) {
     }));
 }
 
+const segundosDesde = (ts) => {
+    const t = Date.parse(String(ts || '').replace(' ', 'T'));
+    return isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 1000)) : 0;
+};
 const minutosDesde = (ts) => {
     const t = Date.parse(String(ts || '').replace(' ', 'T'));
     return isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 60000)) : 0;
@@ -215,6 +222,7 @@ async function pedidosDaEstacao(estacaoId) {
             mesa: p.mesa,
             lancamento: p.lancamento,
             minutos: minutosDesde(p.lancamento),
+            segundos: segundosDesde(p.lancamento),
             estacoesEnvolvidas: envolvidas,
             estacoesConcluidas: concluidas,
             itens: itensVisiveis.map((i) => ({
@@ -222,7 +230,8 @@ async function pedidosDaEstacao(estacaoId) {
                 quantidade: i.quantidade,
                 observacao: i.observacao,
                 estacao: i.estacao,
-                minutos: minutosDesde(i.lancadoEm)
+                minutos: minutosDesde(i.lancadoEm),
+                segundos: segundosDesde(i.lancadoEm)
             }))
         });
 
@@ -264,16 +273,78 @@ function concluir(pedidoId, estacaoId, { desfazer = false } = {}) {
         estado[id] = estado[id] || {};
         if (desfazer) delete estado[id][estacaoId];
         else estado[id][estacaoId] = new Date().toISOString();
-        gravarEstado(estado);
 
         const faltam = envolvidas.filter((e) => !estado[id][e]);
         let pronto = false;
+        // Marca PRONTO no ERP ANTES de gravar o estado: se falhar, a estacao nao fica concluida
+        // (senao o pedido some do KDS e continua em preparo no painel)
         if (!desfazer && faltam.length === 0) {
             await db.updateOrderStatus(id, 'PRONTO');
             pronto = true;
         }
+        gravarEstado(estado);
         return { pedido: id, estacao: estacaoId, concluidas: envolvidas.filter((e) => estado[id][e]), faltam, pedidoPronto: pronto };
     });
 }
 
-module.exports = { getConfig, salvarConfig, opcoes, pedidosDaEstacao, concluir, validarConfig };
+// --- impressao automatica de comandas por estacao ---
+// Imprime cada pedido novo (em preparo) nas estacoes que tem impressora configurada. Ao ligar a impressao
+// pela primeira vez (ou a cada novo dia) os pedidos que ja estavam abertos sao marcados como impressos.
+const printStateFile = path.join(configDir, 'kds_print_state.json');
+let imprimindo = false;
+const diaHoje = () => new Date().toISOString().substring(0, 10);
+
+async function cicloImpressao() {
+    if (imprimindo) return;
+    imprimindo = true;
+    try {
+        const cfg = await getConfig();
+        const comImpressora = cfg.estacoes.filter((e) => e.impressora);
+        if (comImpressora.length === 0) {
+            if (fs.existsSync(printStateFile)) fs.rmSync(printStateFile, { force: true }); // reinicia a base ao reativar
+            return;
+        }
+        const pedidos = await carregarPedidos(cfg);
+        let st = lerJson(printStateFile, null);
+        if (!st || st.dia !== diaHoje()) {
+            gravarJson(printStateFile, { dia: diaHoje(), impressos: pedidos.map((p) => p.id) });
+            return;
+        }
+        // pedido sem itens ainda (o ERP grava cabecalho e itens em momentos diferentes): espera os itens chegarem
+        const novos = pedidos.filter((p) => !st.impressos.includes(p.id) && p.itens.length > 0);
+        for (const p of novos) {
+            for (const est of comImpressora) {
+                const itens = p.itens.filter((i) => i.estacao === est.id);
+                if (itens.length === 0) continue;
+                try {
+                    await printer.imprimir(est.impressora, printer.montarComanda({ estacao: est.nome, pedido: p, itens }));
+                } catch (e) {
+                    console.warn(`Impressão (${est.nome}) pedido ${p.id}: ${e.message}`);
+                }
+            }
+            st.impressos.push(p.id);
+            gravarJson(printStateFile, st);
+        }
+    } catch (e) {
+        console.warn('Ciclo de impressão:', e.message);
+    } finally {
+        imprimindo = false;
+    }
+}
+
+let timerImpressao = null;
+function iniciarImpressao() {
+    if (timerImpressao) return;
+    timerImpressao = setInterval(cicloImpressao, 5000);
+    if (timerImpressao.unref) timerImpressao.unref();
+}
+
+async function imprimirTeste(impressora, estacao) {
+    await printer.imprimir(impressora, printer.montarComanda({
+        estacao: estacao || 'TESTE',
+        pedido: { id: 0, senha: '00', cliente: 'Teste de impressão', mesa: '', comanda: '' },
+        itens: [{ quantidade: 1, descricao: 'ITEM DE TESTE', observacao: 'Impressora configurada com sucesso' }]
+    }));
+}
+
+module.exports = { getConfig, salvarConfig, opcoes, pedidosDaEstacao, concluir, validarConfig, iniciarImpressao, imprimirTeste, listarImpressoras: printer.listar, __cicloImpressao: cicloImpressao };

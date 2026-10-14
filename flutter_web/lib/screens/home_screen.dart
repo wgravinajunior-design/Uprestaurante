@@ -398,7 +398,21 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              ApiService.baseUrl = controller.text.trim();
+              var url = controller.text.trim();
+              while (url.endsWith('/')) {
+                url = url.substring(0, url.length - 1);
+              }
+              final uri = Uri.tryParse(url);
+              if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https') || uri.host.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: AppTheme.dangerLight,
+                    content: Text('Informe um endereço válido, ex.: http://192.168.0.10:8080'),
+                  ),
+                );
+                return;
+              }
+              ApiService.baseUrl = url;
               Navigator.pop(ctx);
               _loadInitialData();
             },

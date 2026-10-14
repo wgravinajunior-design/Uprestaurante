@@ -12,6 +12,8 @@ const db = require('./db');
 const configDir = process.env.CONFIG_DIR || path.join(__dirname, '..', 'config');
 const agendaFile = path.join(configDir, 'promo_agenda.json');
 const MAX_TENTATIVAS = 3;
+// Banco indisponivel/conexao caida e transitorio: nao consome tentativa (a rotina roda a cada minuto)
+const ERRO_TRANSITORIO = /ECONN|EPIPE|ETIMEDOUT|socket|connection|network|Unable to complete|not connected|I\/O error|lock conflict|deadlock/i;
 
 function httpError(status, message, extra) {
     const e = new Error(message);
@@ -243,9 +245,11 @@ function processarVencimentos() {
                 e.aplicadaEm = new Date().toISOString();
                 aplicadas++;
             } catch (err) {
-                e.tentativas = (e.tentativas || 0) + 1;
                 e.erro = err.message;
-                if (e.tentativas >= MAX_TENTATIVAS) e.status = 'FALHOU';
+                if (!ERRO_TRANSITORIO.test(String(err.message))) {
+                    e.tentativas = (e.tentativas || 0) + 1;
+                    if (e.tentativas >= MAX_TENTATIVAS) e.status = 'FALHOU';
+                }
                 falhas++;
             }
         }

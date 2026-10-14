@@ -107,11 +107,33 @@
         <button id="btnOk">Ok, já vou buscar</button>
     </div>
 
+    <div class="pronto" id="telaAvaliar" role="dialog" style="background:var(--card);color:var(--text)">
+        <div class="grande" style="color:var(--text)">Como foi seu pedido?</div>
+        <div id="estrelas" style="font-size:46px;letter-spacing:6px;cursor:pointer;user-select:none">
+            <span data-n="1">☆</span><span data-n="2">☆</span><span data-n="3">☆</span><span data-n="4">☆</span><span data-n="5">☆</span>
+        </div>
+        <textarea id="avComentario" maxlength="300" rows="3" placeholder="Quer deixar um comentário? (opcional)" style="width:min(420px,88vw);padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px"></textarea>
+        <div id="avMsg" class="peq" style="min-height:20px"></div>
+        <div style="display:flex;gap:10px">
+            <button id="btnAvEnviar" style="background:var(--primary);color:#fff">Enviar avaliação</button>
+            <button id="btnAvFechar" style="background:transparent;color:var(--muted);border:1px solid var(--border)">Agora não</button>
+        </div>
+    </div>
+
     <script>
         const $ = (id) => document.getElementById(id);
         const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
         const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
         const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
+        // Um unico AudioContext reaproveitado (criar um por aviso esgota o limite do navegador)
+        let _ac = null;
+        function audioCtx() {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            if (!_ac) _ac = new AC();
+            if (_ac.state === 'suspended') { try { _ac.resume(); } catch (e) {} }
+            return _ac;
+        }
 
         let senha = null;
         let estadoAnterior = null;
@@ -119,6 +141,7 @@
         let pronto = false;
         let wakeLock = null;
         let avisosAtivos = lsGet('avisosAtivos') === '1';
+        let googleUrl = '';
 
         // ---- marca da loja ----
         fetch('/api/public/info').then((r) => r.json()).then((j) => {
@@ -127,6 +150,7 @@
             $('subLoja').textContent = d.subtitulo || 'Acompanhe a senha pelo celular';
             if (d.corPrimaria) { document.documentElement.style.setProperty('--primary', d.corPrimaria); document.querySelector('meta[name=theme-color]').content = d.corPrimaria; }
             if (d.modoTema === 'dark') document.body.classList.add('dark');
+            googleUrl = d.googleReviewUrl || '';
             $('logo').src = d.logoUrl + '?t=' + Date.now();
         }).catch(() => {});
 
@@ -147,7 +171,7 @@
             $('inputSenha').value = '';
             history.replaceState(null, '', location.pathname);
         });
-        $('btnOk').addEventListener('click', () => $('telaPronto').classList.remove('show'));
+        $('btnOk').addEventListener('click', () => { $('telaPronto').classList.remove('show'); setTimeout(pedirAvaliacao, 400); });
 
         function iniciar(v) {
             senha = String(parseInt(v, 10));
@@ -164,8 +188,52 @@
             timer = setInterval(consultar, 8000);
             conectarEventos();
             atualizarBotaoAvisar();
+            if (avisosAtivos) inscreverPush();
         }
         function parar() { if (timer) { clearInterval(timer); timer = null; } }
+
+        // ---- avaliacao (1 a 5) depois que o pedido fica pronto ----
+        let notaAv = 0;
+        function pintarEstrelas(n) {
+            document.querySelectorAll('#estrelas span').forEach((el) => { el.textContent = parseInt(el.dataset.n, 10) <= n ? '★' : '☆'; el.style.color = parseInt(el.dataset.n, 10) <= n ? '#F59E0B' : 'inherit'; });
+        }
+        function jaAvaliou() { return lsGet('avaliado:' + new Date().toDateString() + ':' + senha) === '1'; }
+        function pedirAvaliacao() {
+            if (!senha || jaAvaliou() || $('telaAvaliar').classList.contains('show')) return;
+            notaAv = 0; pintarEstrelas(0); $('avMsg').textContent = '';
+            $('btnAvEnviar').style.display = ''; $('btnAvFechar').textContent = 'Agora não';
+            $('telaAvaliar').classList.add('show');
+        }
+        document.querySelectorAll('#estrelas span').forEach((el) => el.addEventListener('click', () => { notaAv = parseInt(el.dataset.n, 10); pintarEstrelas(notaAv); }));
+        $('btnAvFechar').addEventListener('click', () => { lsSet('avaliado:' + new Date().toDateString() + ':' + senha, '1'); $('telaAvaliar').classList.remove('show'); });
+        $('btnAvEnviar').addEventListener('click', async () => {
+            if (!notaAv) { $('avMsg').textContent = 'Toque nas estrelas para dar sua nota.'; return; }
+            try {
+                const r = await fetch('/api/public/rating', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senha, nota: notaAv, comentario: $('avComentario').value })
+                });
+                const j = await r.json().catch(() => ({}));
+                if (r.ok && j.success || r.status === 409) {
+                    lsSet('avaliado:' + new Date().toDateString() + ':' + senha, '1');
+                    $('btnAvEnviar').style.display = 'none';
+                    if (notaAv === 5 && googleUrl) {
+                        // nota 5: convida a repetir no Google (so o link; nunca condiciona a avaliacao)
+                        const m = $('avMsg');
+                        m.textContent = 'Que bom que você gostou! 💛 Quer contar isso para mais gente? ';
+                        const a = document.createElement('a');
+                        a.href = googleUrl; a.target = '_blank'; a.rel = 'noopener';
+                        a.textContent = 'Avaliar no Google ⭐';
+                        a.style.cssText = 'color:var(--primary);font-weight:800';
+                        m.appendChild(a);
+                        $('btnAvFechar').textContent = 'Fechar';
+                    } else {
+                        $('avMsg').textContent = 'Obrigado pela avaliação! 💛';
+                        setTimeout(() => $('telaAvaliar').classList.remove('show'), 1500);
+                    }
+                } else { $('avMsg').textContent = j.error || 'Não foi possível enviar agora.'; }
+            } catch (e) { $('avMsg').textContent = 'Sem conexão. Tente novamente.'; }
+        });
 
         // ---- consulta ----
         async function consultar() {
@@ -219,7 +287,7 @@
                 pronto = true;
                 avisarPronto(d.senha);
             }
-            if (d.encontrado && d.estado === 'ENTREGUE') { lsDel('senhaCliente'); parar(); }
+            if (d.encontrado && d.estado === 'ENTREGUE') { const s = senha; parar(); setTimeout(pedirAvaliacao, 600); lsDel('senhaCliente'); }
             estadoAnterior = d.encontrado ? d.estado : estadoAnterior;
         }
 
@@ -229,9 +297,8 @@
             $('telaPronto').classList.add('show');
             try { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 800]); } catch (e) {}
             try {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (AC) {
-                    const ctx = new AC();
+                const ctx = audioCtx();
+                if (ctx) {
                     [[880, 0], [1174.66, 0.25], [880, 0.5], [1174.66, 0.75]].forEach(([f, t]) => {
                         const o = ctx.createOscillator(); const g = ctx.createGain();
                         o.type = 'sine'; o.frequency.value = f;
@@ -277,7 +344,32 @@
             avisosAtivos = true;
             lsSet('avisosAtivos', '1');
             atualizarBotaoAvisar();
+            inscreverPush();
         });
+
+        // ---- Web Push: o servidor avisa mesmo com a tela bloqueada / pagina fechada ----
+        function chaveParaBytes(b64) {
+            const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+            const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+            return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+        }
+        async function inscreverPush() {
+            try {
+                if (!senha || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+                if (!('Notification' in window) || Notification.permission !== 'granted') return;
+                const kr = await fetch('/api/public/push/key');
+                const kj = await kr.json();
+                if (!kj.success) return;
+                const reg = await navigator.serviceWorker.register('/sw.js');
+                await navigator.serviceWorker.ready;
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: chaveParaBytes(kj.key) });
+                await fetch('/api/public/push/subscribe', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ senha, subscription: sub.toJSON() })
+                });
+            } catch (e) { /* sem push: continua com aviso na tela */ }
+        }
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 consultar();

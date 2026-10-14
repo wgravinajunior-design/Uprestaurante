@@ -1,9 +1,13 @@
+process.env.NODE_ENV = process.env.NODE_ENV || 'production'; // sem stack trace em respostas de erro
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const db = require('./db');
+const tunnel = require('./tunnel');
+const auth = require('./auth');
+const push = require('./push');
 const agenda = require('./agenda');
 const reports = require('./reports');
 const kds = require('./kds');
@@ -34,6 +38,7 @@ const API_TOKEN = process.env.API_TOKEN || '';
 const requireToken = (req, res, next) => {
     if (!API_TOKEN || req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
     if (req.headers['x-api-token'] === API_TOKEN) return next();
+    if (auth.sessionOf(req)) return next(); // usuario logado (TB_USUARIO)
     res.status(401).json({ success: false, error: 'Não autorizado' });
 };
 
@@ -50,6 +55,7 @@ const upload = multer({
 
 // Middleware
 app.use(cors(corsOptions));
+app.use('/api', auth.apiGuard);
 app.use('/api', requireToken);
 
 // Alteracoes feitas por esta API avisam os paineis na hora (sem esperar o proximo ciclo)
@@ -77,6 +83,15 @@ const forwardToApi = (req, res, next) => {
     }
     next();
 };
+// Login (TB_USUARIO): paginas protegidas para acessos vindos da internet; a TV continua publica
+// (apenas o admin da TV, o painel de senhas e o KDS exigem login)
+app.post('/api/auth/login', auth.login);
+app.post('/api/auth/logout', auth.logout);
+for (const a of [app, tvApp, ordersApp]) a.get('/login', auth.loginPage);
+tvApp.use(auth.pageGuard(/^\/admin(\.html)?$/i));
+ordersApp.use(auth.pageGuard());
+app.use(auth.pageGuard(/^\/(kds|pedidos|tv\/admin)/i));
+
 tvApp.use(forwardToApi);
 ordersApp.use(forwardToApi);
 
@@ -105,7 +120,8 @@ function logEvent(type, message, details = null) {
 }
 
 app.use((req, res, next) => {
-    if (req.path.startsWith('/api/')) {
+    const ruido = ['/api/logs', '/api/stats', '/api/health', '/api/events', '/api/tv/calls', '/api/kds/orders', '/api/public/events'];
+    if (req.path.startsWith('/api/') && !(req.method === 'GET' && ruido.includes(req.path))) {
         logEvent('HTTP', `${req.method} ${req.path}`);
     }
     next();
@@ -129,6 +145,8 @@ const OPERACIONAL_PADRAO = {
     tvBannerACada: 3,         // na ROTACAO: um banner a cada N produtos
     vozAtiva: true,
     vozRepeticoes: 2,
+    vozTexto: 'Senha {senha}, pode retirar.', // frase falada na TV; {senha} = numero da senha
+    googleReviewUrl: '',      // link de avaliacao do Google (oferecido ao cliente apos nota 5)
     publicUrl: ''             // endereco publico (https/dominio/tunel) usado nos QR Codes; vazio = IP da rede local
 };
 
@@ -159,6 +177,20 @@ app.get('/api/company', async (req, res) => {
         const dbCompany = await db.getCompanyInfo();
         const themeCfg = getThemeConfig();
         const hasCustomLogo = fs.existsSync(customLogoPath);
+        const operacional = Object.fromEntries(Object.keys(OPERACIONAL_PADRAO).map((k) => [k, themeCfg[k] !== undefined ? themeCfg[k] : OPERACIONAL_PADRAO[k]]));
+        // Visitante da internet sem login (TV publica): so identidade visual, sem CNPJ/telefone/endereco
+        if (auth.isRemote(req) && !auth.sessionOf(req)) {
+            return res.json({ success: true, data: {
+                nome: themeCfg.nome || dbCompany.fantasia || 'DUSUCO',
+                subtitulo: themeCfg.subtitulo || 'Sucos & Alimentos Naturais',
+                corPrimaria: themeCfg.corPrimaria || '#FF6B00',
+                corSecundaria: themeCfg.corSecundaria || '#EA580C',
+                modoTema: themeCfg.modoTema || 'light',
+                ...operacional,
+                temLogoCustom: hasCustomLogo,
+                logoUrl: '/api/company/logo'
+            } });
+        }
         res.json({
             success: true,
             data: {
@@ -235,6 +267,19 @@ const handleSaveTheme = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'publicUrl deve começar com http:// ou https://' });
             }
             patch.publicUrl = u.replace(/\/+$/, '');
+        }
+        if (body.googleReviewUrl !== undefined) {
+            const u = String(body.googleReviewUrl).trim();
+            if (u !== '' && !/^https:\/\/[^\s<>"']{4,300}$/.test(u)) {
+                return res.status(400).json({ success: false, error: 'O link do Google deve começar com https://' });
+            }
+            patch.googleReviewUrl = u;
+        }
+        if (body.vozTexto !== undefined) {
+            let t = String(body.vozTexto).replace(/[\u0000-\u001f<>]/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 80);
+            if (t === '') t = OPERACIONAL_PADRAO.vozTexto;
+            if (!t.includes('{senha}')) t = `Senha {senha}, ${t.replace(/^[,.\s]+/, '')}`;
+            patch.vozTexto = t;
         }
         for (const k of ['vozAtiva']) {
             if (body[k] !== undefined) patch[k] = body[k] === true || body[k] === 'true';
@@ -353,6 +398,20 @@ app.get('/api/tv/promotions', async (req, res) => {
         res.json({ success: true, count: promotions.length, data: promotions });
     } catch (err) {
         logEvent('ERROR', 'Erro ao obter promoções para TV: ' + err.message);
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+// 1c. Chamada de senha na TV: somente senha e horario dos pedidos prontos (sem nome/comanda/itens),
+// porque a TV pode ser aberta pela internet sem login
+app.get('/api/tv/calls', async (req, res) => {
+    try {
+        const lista = await db.getOrders({ filter: 'PRONTOS', limit: 30 });
+        const data = lista
+            .filter((o) => o.estado === 'PRONTO')
+            .map((o) => ({ id: o.id, senha: o.senha, estado: o.estado, dtPronto: o.dtPronto }));
+        res.json({ success: true, count: data.length, data });
+    } catch (err) {
         res.status(err.status || 500).json({ success: false, error: err.message });
     }
 });
@@ -495,7 +554,7 @@ app.put('/api/products/:id/promotion', async (req, res) => {
             dtFim,
             tipoValor: tipoValor || 'V'
         });
-        logEvent('AUDIT', `Promoção do produto ${id} atualizada: ${ativo ? 'R$ ' + valorPromocional : 'Removida'} (Auditoria gerada)`);
+        logEvent('AUDIT', `Promoção do produto ${id} atualizada: ${ativo !== false ? 'R$ ' + valorPromocional : 'Removida'} (Auditoria gerada)`);
         res.json({ success: true, data: updated });
     } catch (err) {
         logEvent('ERROR', `Erro ao atualizar promoção do produto ${req.params.id}: ` + err.message);
@@ -570,6 +629,42 @@ app.get('/api/audit', async (req, res) => {
 app.get('/api/logs', (req, res) => {
     res.json({ success: true, data: recentLogs });
 });
+
+// Configuracao da base de dados e tunel: somente a propria maquina do servidor
+const localOnly = (req, res, next) => (auth.isRemote(req)
+    ? res.status(403).json({ success: false, error: 'Disponível apenas no servidor' }) : next());
+app.get('/api/db-config', localOnly, (req, res) => {
+    res.json({ success: true, data: db.getDbConfig() });
+});
+app.post('/api/db-config/test', localOnly, async (req, res) => {
+    try {
+        await db.testDbConfig(req.body || {});
+        res.json({ success: true, message: 'Conexão realizada com sucesso' });
+    } catch (e) {
+        res.status(e.status || 500).json({ success: false, error: e.message });
+    }
+});
+app.post('/api/db-config', localOnly, async (req, res) => {
+    try {
+        const data = await db.saveDbConfig(req.body || {});
+        logEvent('DATABASE', `Base alterada para ${data.host}:${data.port}/${data.database}`);
+        res.json({ success: true, data, message: 'Configuração salva' });
+    } catch (e) {
+        res.status(e.status || 500).json({ success: false, error: e.message });
+    }
+});
+
+// Tunel Cloudflare
+app.get('/api/tunnel', localOnly, (req, res) => res.json({ success: true, data: tunnel.status() }));
+app.post('/api/tunnel/config', localOnly, (req, res) => {
+    try {
+        res.json({ success: true, data: tunnel.saveConfig(req.body || {}) });
+    } catch (e) {
+        res.status(e.status || 500).json({ success: false, error: e.message });
+    }
+});
+app.post('/api/tunnel/start', localOnly, (req, res) => res.json({ success: true, data: tunnel.start() }));
+app.post('/api/tunnel/stop', localOnly, (req, res) => res.json({ success: true, data: tunnel.stop() }));
 
 // --- 13. Orders & Password API (KDS & Fila) ---
 app.get('/api/orders', async (req, res) => {
@@ -815,7 +910,15 @@ function sseBroadcast(evt) {
     }
 }
 
+const ssePorIp = new Map();
 function attachSse(req, res) {
+    const ipSse = String(req.headers['cf-connecting-ip'] || (req.socket && req.socket.remoteAddress) || '?');
+    if (sseClients.size >= 400 || (ssePorIp.get(ipSse) || 0) >= 8) return res.status(429).end();
+    ssePorIp.set(ipSse, (ssePorIp.get(ipSse) || 0) + 1);
+    res.on('close', () => {
+        const n = (ssePorIp.get(ipSse) || 1) - 1;
+        if (n <= 0) ssePorIp.delete(ipSse); else ssePorIp.set(ipSse, n);
+    });
     res.set({
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
@@ -883,6 +986,45 @@ app.get('/api/kds/config', async (req, res) => {
     }
 });
 
+// Cupons de desconto, avaliacoes e WhatsApp (administracao)
+const cuponsMod = require('./cupons');
+const avaliacoesMod = require('./avaliacoes');
+const whatsappMod = require('./whatsapp');
+app.get('/api/cupons', (req, res) => res.json({ success: true, data: cuponsMod.listar() }));
+app.put('/api/cupons', (req, res) => {
+    try {
+        const data = cuponsMod.salvar(Array.isArray(req.body) ? req.body : (req.body || {}).cupons);
+        logEvent('AUDIT', `Cupons atualizados (${data.length})`);
+        res.json({ success: true, data });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+app.get('/api/ratings', (req, res) => {
+    const hoje = new Date().toISOString().substring(0, 10);
+    res.json({ success: true, data: avaliacoesMod.resumo(String(req.query.inicio || '2000-01-01'), String(req.query.fim || hoje)) });
+});
+app.get('/api/whatsapp/config', localOnly, (req, res) => res.json({ success: true, data: whatsappMod.configPublica() }));
+app.put('/api/whatsapp/config', localOnly, (req, res) => {
+    try {
+        res.json({ success: true, data: whatsappMod.salvarConfig(req.body || {}) });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/kds/printers', async (req, res) => {
+    res.json({ success: true, data: await kds.listarImpressoras() });
+});
+app.post('/api/kds/printers/test', async (req, res) => {
+    try {
+        await kds.imprimirTeste(String((req.body || {}).impressora || ''), String((req.body || {}).estacao || ''));
+        res.json({ success: true });
+    } catch (err) {
+        res.status(400).json({ success: false, error: err.message });
+    }
+});
+
 app.put('/api/kds/config', async (req, res) => {
     try {
         const config = await kds.salvarConfig(req.body);
@@ -920,7 +1062,7 @@ app.get('/api/public-info', (req, res) => {
     const ips = publicMod.enderecosLocais();
     const bases = ips.map((i) => ({ interface: i.interface, ip: i.ip, base: `http://${i.ip}:${PORT_PUBLIC}` }));
     const sugerida = theme.publicUrl || (bases[0] ? bases[0].base : `http://localhost:${PORT_PUBLIC}`);
-    res.json({ success: true, data: { porta: Number(PORT_PUBLIC), publicUrl: theme.publicUrl || '', enderecos: bases, baseSugerida: sugerida } });
+    res.json({ success: true, data: { porta: Number(PORT_PUBLIC), publicUrl: theme.publicUrl || '', googleReviewUrl: theme.googleReviewUrl || '', enderecos: bases, baseSugerida: sugerida } });
 });
 
 app.get('/api/qr', async (req, res) => {
@@ -1007,13 +1149,30 @@ if (fs.existsSync(flutterWebPath)) {
     });
 }
 
+// Erros (JSON invalido etc.) das portas da TV e dos pedidos tambem viram JSON (sem stack trace)
+const jsonErrorHandler = (err, req, res, next) => {
+    if (res.headersSent) return next(err);
+    const status = err.status || err.statusCode || 500;
+    res.status(status).json({ success: false, error: err.type === 'entity.parse.failed' ? 'JSON inválido' : (status >= 500 ? 'Erro interno' : err.message) });
+};
+tvApp.use(jsonErrorHandler);
+ordersApp.use(jsonErrorHandler);
+
 // App publico (clientes): porta separada, somente leitura
 const publicApp = publicMod.createPublicApp({
     mainApp: app,
     getTheme: getThemeConfig,
     attachSse,
-    pagesDir: path.join(__dirname, '..', 'public_display')
+    pagesDir: path.join(__dirname, '..', 'public_display'),
+    push,
+    criarPedido: (dados) => db.createQuickTicket(dados),
+    onPedido: (r) => {
+        logEvent('AUDIT', `Pedido online ${r.id} recebido (senha ${r.senha}, R$ ${Number(r.valorTotal).toFixed(2)})`);
+        sseBroadcast('orders');
+    }
 });
+
+publicApp.use(jsonErrorHandler);
 
 let agendaTimer = null;
 function startAgenda() {
@@ -1033,12 +1192,28 @@ function startAgenda() {
 }
 
 function startServer(port = PORT, tvPort = PORT_TV, ordersPort = PORT_ORDERS) {
-    startChangeWatcher();
-    startAgenda();
     return new Promise((resolve, reject) => {
         const server = app.listen(port, () => {
             logEvent('SYSTEM', `Servidor Principal HTTP ativo na porta ${port}`);
-            logEvent('DATABASE', `Conectado ao Firebird 5.0 (3060:DADOS.FDB)`);
+
+            // Trabalhos de fundo (agenda, push, impressao, vigia do banco) so rodam no processo que
+            // realmente serve a API: evita duplicar impressao/avisos quando outra instancia ja esta no ar.
+            startChangeWatcher();
+            startAgenda();
+            try {
+                push.iniciar({
+                    statusDaSenha: publicMod.statusDaSenha,
+                    subject: () => (getThemeConfig().publicUrl || 'mailto:sistema@localhost.invalid')
+                });
+                kds.iniciarImpressao();
+            } catch (e) { logEvent('ERROR', 'Push/impressão: ' + e.message); }
+
+            const ci = db.connectionInfo;
+            db.query('SELECT 1 AS OK FROM RDB$DATABASE')
+                .then(() => logEvent('DATABASE', `Conectado ao Firebird (${ci.host}:${ci.port})`))
+                .catch((e) => logEvent('ERROR', 'Banco indisponível: ' + e.message));
+
+            try { tunnel.init(logEvent); } catch (e) { logEvent('ERROR', 'Túnel: ' + e.message); }
 
             let tvServer = null;
             let ordersServer = null;

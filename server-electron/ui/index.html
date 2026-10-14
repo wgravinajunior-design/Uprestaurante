@@ -282,7 +282,7 @@
             <div class="logo-badge">DUSUCO</div>
             <div class="title-text">
                 <h1>Servidor ERP Firebird 5.0 & API REST</h1>
-                <p>Retaguarda Integrado • DADOS.FDB (Porta 3060)</p>
+                <p id="hdrDb">Retaguarda Integrado</p>
             </div>
         </div>
         <div class="header-actions">
@@ -308,6 +308,12 @@
             <button class="btn" id="btnOpenTvAdmin" style="background: linear-gradient(135deg, #0EA5E9, #0284C7); box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);">
                 ⚙️ Config. TV, Voz e Banners
             </button>
+            <button class="btn" id="btnOpenDbCfg" style="background: linear-gradient(135deg, #64748B, #475569);">
+                🛢️ Base de Dados
+            </button>
+            <button class="btn" id="btnOpenNet" style="background: linear-gradient(135deg, #F59E0B, #D97706);">
+                ☁️ Túnel & Serviço
+            </button>
             <button class="btn" id="btnOpenWeb">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                 Abrir Flutter Web
@@ -325,8 +331,8 @@
                 <div class="status-box">
                     <div class="status-dot"></div>
                     <div class="status-info">
-                        <h3>Firebird 5.0 Conectado</h3>
-                        <p>localhost:3060/DADOS.FDB</p>
+                        <h3 id="dbStatusTitle">Verificando banco…</h3>
+                        <p id="dbStatusSub">—</p>
                     </div>
                 </div>
 
@@ -385,7 +391,7 @@
     </div>
 
     <div class="footer">
-        <span>Banco: C:\Users\Walter Gravina\OneDrive\DADOS\DUSUCO\DADOS.FDB</span>
+        <span id="ftDb">Banco: —</span>
         <span>Versão 1.0.0 • Electron & Node.js</span>
     </div>
 
@@ -447,6 +453,195 @@
             </div>
         </div>
     </div>
+
+    <!-- Database Config Modal -->
+    <div id="dbModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:#0f172a; border:1px solid #334155; border-radius:14px; width:460px; padding:24px; display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px;">
+                <h3 style="font-size:16px; font-weight:800; color:#f8fafc;">🛢️ Configuração da Base de Dados</h3>
+                <button id="btnCloseDb" style="background:transparent; border:none; color:#94a3b8; font-size:18px; cursor:pointer;">✕</button>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:2; display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Host</label>
+                    <input type="text" id="dbHost" placeholder="localhost" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Porta</label>
+                    <input type="number" id="dbPort" placeholder="3050" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Caminho da Base (no servidor)</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="dbPath" placeholder="C:\DADOS\DADOS.FDB" style="flex:1; background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+                    <button class="btn btn-outline" id="btnBrowseDb" type="button">📁 Procurar</button>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Usuário</label>
+                    <input type="text" id="dbUser" placeholder="SYSDBA" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Senha</label>
+                    <input type="password" id="dbPass" placeholder="(manter atual)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+                </div>
+            </div>
+            <div id="dbMsg" style="font-size:12px; min-height:16px; color:#94a3b8;"></div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-outline" id="btnTestDb">Testar</button>
+                <button class="btn" id="btnSaveDb" style="background:#10B981;">💾 Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tunnel & Service Modal -->
+    <div id="netModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); z-index:100; align-items:center; justify-content:center;">
+        <div style="background:#0f172a; border:1px solid #334155; border-radius:14px; width:520px; max-height:92vh; overflow:auto; padding:24px; display:flex; flex-direction:column; gap:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; padding-bottom:12px;">
+                <h3 style="font-size:16px; font-weight:800; color:#f8fafc;">☁️ Túnel Cloudflare & Serviço do Windows</h3>
+                <button id="btnCloseNet" style="background:transparent; border:none; color:#94a3b8; font-size:18px; cursor:pointer;">✕</button>
+            </div>
+
+            <div style="font-size:12px; font-weight:800; color:#f59e0b; text-transform:uppercase;">Túnel Cloudflare</div>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Modo</label>
+                    <select id="tnMode" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px;">
+                        <option value="quick">Rápido (URL temporária trycloudflare)</option>
+                        <option value="token">Nomeado (token, domínio fixo)</option>
+                    </select>
+                </div>
+                <div style="width:110px; display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Porta local</label>
+                    <input type="number" id="tnPort" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+                </div>
+            </div>
+            <div id="tnTokenBox" style="display:none; flex-direction:column; gap:10px;">
+                <input type="password" id="tnToken" placeholder="Token do túnel (manter atual se vazio)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+                <input type="text" id="tnHost" placeholder="Hostname público (ex: cardapio.meudominio.com)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+            </div>
+            <input type="text" id="tnExe" placeholder="Caminho do cloudflared.exe (opcional)" style="background:#1e293b; border:1px solid #334155; color:#f8fafc; padding:8px 12px; border-radius:8px; font-size:13px; outline:none;">
+            <label style="font-size:12px; color:#f8fafc; display:flex; gap:8px; align-items:center;"><input type="checkbox" id="tnAuto"> Iniciar o túnel junto com o servidor</label>
+            <div id="tnInfo" style="font-size:12px; color:#94a3b8; word-break:break-all;"></div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn btn-outline" id="btnTnSave">Salvar</button>
+                <button class="btn" id="btnTnStart" style="background:#10B981;">▶ Iniciar</button>
+                <button class="btn" id="btnTnStop" style="background:#EF4444;">■ Parar</button>
+            </div>
+
+            <div style="border-top:1px solid #334155; padding-top:14px; font-size:12px; font-weight:800; color:#f59e0b; text-transform:uppercase;">Serviço do Windows</div>
+            <div style="font-size:12px; color:#94a3b8;">Instala o servidor para iniciar com o Windows, sem precisar abrir esta janela. Será solicitada permissão de administrador.</div>
+            <div id="svcInfo" style="font-size:12px; color:#94a3b8;"></div>
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button class="btn" id="btnSvcInstall" style="background:#6366f1;">⚙ Instalar como administrador</button>
+                <button class="btn btn-outline" id="btnSvcUninstall">Remover serviço</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const $ = (id) => document.getElementById(id);
+            const API = 'http://localhost:8080/api/tunnel';
+            const info = (t, color) => { $('tnInfo').textContent = t; $('tnInfo').style.color = color || '#94a3b8'; };
+            const svc = (t, color) => { $('svcInfo').textContent = t; $('svcInfo').style.color = color || '#94a3b8'; };
+            const cfgBody = () => ({ mode: $('tnMode').value, port: $('tnPort').value, token: $('tnToken').value, hostname: $('tnHost').value, exe: $('tnExe').value, autoStart: $('tnAuto').checked });
+            const call = async (p, method, body) => (await fetch(API + p, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })).json();
+            const toggleMode = () => { $('tnTokenBox').style.display = $('tnMode').value === 'token' ? 'flex' : 'none'; };
+            function render(s) {
+                if (s.running) info('● Ativo' + (s.url ? ' — ' + s.url : ' — aguardando URL...'), '#34d399');
+                else if (s.error) info('✖ ' + s.error, '#f87171');
+                else info('○ Parado');
+            }
+            async function loadTunnel() {
+                const j = await call('', 'GET');
+                const c = j.data.config;
+                $('tnMode').value = c.mode; $('tnPort').value = c.port; $('tnHost').value = c.hostname; $('tnExe').value = c.exe;
+                $('tnAuto').checked = c.autoStart; $('tnToken').value = '';
+                $('tnToken').placeholder = c.hasToken ? 'Token salvo (deixe vazio para manter)' : 'Token do túnel';
+                toggleMode(); render(j.data);
+            }
+            async function loadService() {
+                if (!(window.appCfg && window.appCfg.serviceStatus)) return svc('Reinicie o aplicativo para habilitar o serviço', '#f87171');
+                const s = await window.appCfg.serviceStatus();
+                svc(s.installed ? (s.running ? '● Serviço instalado e em execução' : '● Serviço instalado (parado)') : '○ Serviço não instalado', s.installed ? '#34d399' : '#94a3b8');
+            }
+            async function svcAction(fn, label) {
+                svc(label + ' (aguardando permissão de administrador)...');
+                try {
+                    const r = await fn();
+                    svc((r.ok ? '✔ ' : '✖ ') + r.message, r.ok ? '#34d399' : '#f87171');
+                } catch (e) { svc('✖ ' + e.message, '#f87171'); }
+            }
+            $('tnMode').addEventListener('change', toggleMode);
+            $('btnOpenNet').addEventListener('click', async () => {
+                $('netModal').style.display = 'flex';
+                try { await loadTunnel(); } catch (e) { info('✖ Não foi possível ler o túnel', '#f87171'); }
+                loadService();
+            });
+            $('btnCloseNet').addEventListener('click', () => { $('netModal').style.display = 'none'; });
+            $('btnTnSave').addEventListener('click', async () => {
+                const j = await call('/config', 'POST', cfgBody());
+                if (j.success) { $('tnToken').value = ''; await loadTunnel(); info('✔ Configuração salva', '#34d399'); } else info('✖ ' + j.error, '#f87171');
+            });
+            $('btnTnStart').addEventListener('click', async () => {
+                const sv = await call('/config', 'POST', cfgBody());
+                if (!sv.success) return info('✖ ' + sv.error, '#f87171');
+                info('Iniciando...');
+                await call('/start', 'POST');
+                let n = 0;
+                const t = setInterval(async () => {
+                    const j = await call('', 'GET');
+                    render(j.data);
+                    if (++n > 30 || j.data.url || !j.data.running) clearInterval(t);
+                }, 1000);
+            });
+            $('btnTnStop').addEventListener('click', async () => { render((await call('/stop', 'POST')).data); });
+            $('btnSvcInstall').addEventListener('click', async () => { await svcAction(() => window.appCfg.serviceInstall(), 'Instalando'); loadService(); });
+            $('btnSvcUninstall').addEventListener('click', async () => { await svcAction(() => window.appCfg.serviceUninstall(), 'Removendo'); loadService(); });
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const $ = (id) => document.getElementById(id);
+            const msg = (t, ok) => { $('dbMsg').textContent = t; $('dbMsg').style.color = ok === undefined ? '#94a3b8' : (ok ? '#34d399' : '#f87171'); };
+            const body = () => ({ host: $('dbHost').value, port: $('dbPort').value, database: $('dbPath').value, user: $('dbUser').value, password: $('dbPass').value });
+            async function post(url) {
+                const r = await fetch('http://localhost:8080' + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()) });
+                return r.json();
+            }
+            $('btnOpenDbCfg').addEventListener('click', async () => {
+                msg('');
+                $('dbPass').value = '';
+                $('dbModal').style.display = 'flex';
+                try {
+                    const d = (await (await fetch('http://localhost:8080/api/db-config')).json()).data;
+                    $('dbHost').value = d.host; $('dbPort').value = d.port; $('dbPath').value = d.database; $('dbUser').value = d.user;
+                } catch (e) { msg('Não foi possível ler a configuração atual', false); }
+            });
+            $('btnBrowseDb').addEventListener('click', async () => {
+                if (!(window.appCfg && window.appCfg.pickDbFile)) return msg('Seletor indisponível: reinicie o aplicativo', false);
+                const p = await window.appCfg.pickDbFile($('dbPath').value);
+                if (p) { $('dbPath').value = p; if ($('dbHost').value.trim() === '') $('dbHost').value = 'localhost'; msg(''); }
+            });
+            $('btnCloseDb').addEventListener('click', () => { $('dbModal').style.display = 'none'; });
+            $('btnTestDb').addEventListener('click', async () => {
+                msg('Testando...');
+                try { const j = await post('/api/db-config/test'); msg(j.success ? '✔ ' + j.message : '✖ ' + j.error, j.success); }
+                catch (e) { msg('✖ ' + e.message, false); }
+            });
+            $('btnSaveDb').addEventListener('click', async () => {
+                msg('Testando e salvando...');
+                try {
+                    const j = await post('/api/db-config');
+                    msg(j.success ? '✔ Salvo e conectado' : '✖ ' + j.error, j.success);
+                } catch (e) { msg('✖ ' + e.message, false); }
+            });
+        })();
+    </script>
 
     <script>
         // Links externos: window.open e interceptado em main.js (setWindowOpenHandler -> navegador padrao)
@@ -595,6 +790,25 @@
             fetchLogs();
             fetchCompany();
         });
+
+        async function fetchDbInfo() {
+            try {
+                const c = (await (await fetch('http://localhost:8080/api/db-config')).json()).data;
+                let ok = false;
+                try { ok = (await fetch('http://localhost:8080/api/health')).ok; } catch (e) { ok = false; }
+                const arq = String(c.database || '').split(/[\\/]/).pop();
+                document.getElementById('dbStatusTitle').innerText = ok ? 'Firebird Conectado' : 'Banco indisponível';
+                document.getElementById('dbStatusSub').innerText = c.host + ':' + c.port + ' / ' + arq;
+                document.getElementById('hdrDb').innerText = 'Retaguarda Integrado • ' + arq + ' (Porta ' + c.port + ')';
+                document.getElementById('ftDb').innerText = 'Banco: ' + c.database;
+                const dot = document.querySelector('.status-dot');
+                if (dot) dot.style.background = ok ? '' : '#ef4444';
+            } catch (e) {
+                document.getElementById('dbStatusTitle').innerText = 'Servidor não respondeu';
+            }
+        }
+        setInterval(fetchDbInfo, 10000);
+        fetchDbInfo();
 
         setInterval(fetchStats, 5000);
         setInterval(fetchLogs, 2000);

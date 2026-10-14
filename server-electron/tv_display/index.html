@@ -744,7 +744,7 @@
 
     <!-- Chamada de senha -->
     <div class="call-overlay" id="callOverlay" aria-live="assertive">
-        <div class="call-label">PEDIDO PRONTO</div>
+        <div class="call-label">PEDIDO PRONTO • PODE RETIRAR</div>
         <div class="call-senha" id="callSenha">--</div>
         <div class="call-sub">RETIRE NO BALCÃO</div>
     </div>
@@ -765,13 +765,22 @@
         function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
         function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
         const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        // Um unico AudioContext reaproveitado (criar um por aviso esgota o limite do navegador)
+        let _ac = null;
+        function audioCtx() {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            if (!_ac) _ac = new AC();
+            if (_ac.state === 'suspended') { try { _ac.resume(); } catch (e) {} }
+            return _ac;
+        }
 
         // ------------------------------------------------------------------
         // Estado
         // ------------------------------------------------------------------
         const settings = {          // padroes; sobrescritos por /api/company
             tvLayout: 'DESTAQUE', tvDuracaoSeg: 8, tvGradeItens: 6, tvBannerACada: 3,
-            vozAtiva: true, vozRepeticoes: 2
+            vozAtiva: true, vozRepeticoes: 2, vozTexto: 'Senha {senha}, pode retirar.'
         };
         let produtos = [];
         let banners = [];
@@ -1109,9 +1118,8 @@
 
         function campainha() {
             try {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (!AC) return;
-                const ctx = new AC();
+                const ctx = audioCtx();
+                if (!ctx) return;
                 [[880, 0], [1174.66, 0.2]].forEach(([freq, t]) => {
                     const o = ctx.createOscillator();
                     const g = ctx.createGain();
@@ -1129,7 +1137,8 @@
         function textoFalado(o) {
             const senha = String(o.senha || '').trim();
             const numero = /^\d+$/.test(senha) ? String(Number(senha)) : senha.split('').join(' ');
-            return `Senha ${numero}, pedido pronto.`;
+            const modelo = String(settings.vozTexto || 'Senha {senha}, pode retirar.');
+            return modelo.includes('{senha}') ? modelo.replace('{senha}', numero) : `Senha ${numero}, ${modelo}`;
         }
 
         async function executarChamada(o) {
@@ -1163,7 +1172,7 @@
             if (!settings.vozAtiva) return;
             let lista;
             try {
-                const j = await apiGet('/api/orders?filter=PRONTOS&limit=30');
+                const j = await apiGet('/api/tv/calls');
                 lista = j && j.success ? j.data : null;
             } catch (e) { return; }
             if (!Array.isArray(lista)) return;

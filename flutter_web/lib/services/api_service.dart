@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:web/web.dart' as web;
 import '../models/product.dart';
 import '../models/sales_record.dart';
 import '../models/audit_entry.dart';
@@ -30,6 +31,7 @@ class _TrackingClient extends http.BaseClient {
     try {
       final response = await _inner.send(request).timeout(const Duration(seconds: 30));
       ApiService.online.value = true;
+      if (response.statusCode == 401) ApiService._irParaLogin();
       return response;
     } on TimeoutException {
       ApiService.online.value = false;
@@ -77,8 +79,24 @@ class ApiService {
   }
 
   static String _resolveBaseUrl() {
-    final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-    return 'http://$host:8080';
+    final u = Uri.base;
+    final host = u.host.isNotEmpty ? u.host : 'localhost';
+    // Servido pela própria API (porta 8080, ou domínio/porta padrão atrás de proxy/túnel): mesma origem.
+    // Em 'flutter run' (porta aleatória) cai para host:8080.
+    final servidoPelaApi = u.host.isNotEmpty && (!u.hasPort || u.port == 8080);
+    return servidoPelaApi ? u.origin : 'http://$host:8080';
+  }
+
+  static bool _redirecionando = false;
+
+  /// Sessão ausente/expirada (HTTP 401): leva à tela de login do servidor e volta para o app.
+  static void _irParaLogin() {
+    if (_redirecionando) return;
+    final origem = Uri.tryParse(baseUrl)?.origin;
+    if (origem == null || origem != Uri.base.origin) return; // API em outra origem (dev): sem redirecionar
+    _redirecionando = true;
+    final next = Uri.encodeComponent(web.window.location.pathname + web.window.location.search);
+    web.window.location.href = '/login?next=$next';
   }
 
   /// [width]: largura em px (miniatura gerada no servidor). Sem ele, a imagem original.

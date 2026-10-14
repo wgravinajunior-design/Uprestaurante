@@ -3,6 +3,7 @@
 // Convenções do ERP (verificadas no banco): PEV_STATUS 'F' = venda finalizada, 'C' = cancelada,
 // 'A' = em aberto. Só 'F' entra no faturamento. O horário do pedido é PEV_DT_LANCAMENTO.
 const db = require('./db');
+const avaliacoes = require('./avaliacoes');
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 const pad = (n) => String(n).padStart(2, '0');
@@ -181,7 +182,8 @@ async function dashboard({ inicio, fim, comparar = 'ANTERIOR' } = {}) {
         melhorDia: melhorDia.data ? { data: melhorDia.data, faturamento: melhorDia.faturamento, pedidos: melhorDia.pedidos } : null,
         topQuantidade: topQtd.map(itemTop),
         topFaturamento: topFat.map(itemTop),
-        ultimaVenda: ultima[0] && ultima[0].D ? String(ultima[0].D).substring(0, 10) : null
+        ultimaVenda: ultima[0] && ultima[0].D ? String(ultima[0].D).substring(0, 10) : null,
+        avaliacoes: avaliacoes.resumo(inicio, fim)
     };
 }
 

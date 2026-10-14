@@ -36,7 +36,13 @@
         .vazio { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 80px 10px; font-size: 18px; }
 
         .ticket { background: var(--card); border: 2px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+        .ticket.verde { border-color: var(--ok); }
         .ticket.amarelo { border-color: var(--warn); }
+        .barra { height: 6px; background: rgba(255,255,255,.08); }
+        .barra i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .9s linear, background .3s; }
+        .ticket.amarelo .barra i { background: var(--warn); }
+        .ticket.vermelho .barra i { background: var(--late); }
+        .cab .tempo { font-variant-numeric: tabular-nums; }
         .ticket.vermelho { border-color: var(--late); animation: pulso 1.4s ease-in-out infinite; }
         .ticket.novo { animation: entrada .6s ease-out; }
         @keyframes pulso { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.45); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
@@ -96,7 +102,15 @@
             if (q) localStorage.setItem('apiToken', q);
             TOKEN = localStorage.getItem('apiToken') || '';
         } catch (e) {}
-        const api = (p, o = {}) => fetch(p, { ...o, headers: { ...(o.headers || {}), ...(TOKEN ? { 'x-api-token': TOKEN } : {}) } });
+        // Sessao expirada / acesso sem login: leva para a tela de login e volta para ca
+        let _indoLogin = false;
+        function irParaLogin() {
+            if (_indoLogin) return;
+            _indoLogin = true;
+            location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
+        }
+        const api = (p, o = {}) => fetch(p, { ...o, headers: { ...(o.headers || {}), ...(TOKEN ? { 'x-api-token': TOKEN } : {}) } })
+            .then((r) => { if (r.status === 401) irParaLogin(); return r; });
 
         const qs = new URLSearchParams(location.search);
         let estacao = qs.get('estacao') || lsGet('kdsEstacao') || '';
@@ -115,11 +129,20 @@
         }, 1000);
 
         // ---- som ----
+        // Um unico AudioContext reaproveitado (criar um por aviso esgota o limite do navegador)
+        let _ac = null;
+        function audioCtx() {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            if (!_ac) _ac = new AC();
+            if (_ac.state === 'suspended') { try { _ac.resume(); } catch (e) {} }
+            return _ac;
+        }
         function beep() {
             if (!somAtivo) return;
             try {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                const ctx = new AC();
+                const ctx = audioCtx();
+                if (!ctx) return;
                 [0, 0.18].forEach((t) => {
                     const o = ctx.createOscillator(); const g = ctx.createGain();
                     o.type = 'triangle'; o.frequency.value = 740;
@@ -162,11 +185,28 @@
             }
         }
 
+        // verde ate 50% do limite, amarelo ate o limite, vermelho depois (limite = alertaPreparoMin)
         function classeTempo(min) {
             if (min >= limiteMin) return 'vermelho';
             if (min >= Math.max(1, Math.round(limiteMin * 0.5))) return 'amarelo';
-            return '';
+            return 'verde';
         }
+        const mmss = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+        // relogio ao vivo: atualiza tempo, cor e barra de cada pedido a cada segundo, sem redesenhar
+        function tickRelogio() {
+            const agora = Date.now();
+            document.querySelectorAll('#tickets .ticket[data-t0]').forEach((el) => {
+                const seg = Math.max(0, Math.floor((agora - parseInt(el.dataset.t0, 10)) / 1000));
+                const min = Math.floor(seg / 60);
+                const c = classeTempo(min);
+                ['verde', 'amarelo', 'vermelho'].forEach((k) => el.classList.toggle(k, k === c));
+                const t = el.querySelector('.tempo');
+                if (t) t.textContent = mmss(seg);
+                const b = el.querySelector('.barra i');
+                if (b) b.style.width = Math.min(100, Math.round((seg / (limiteMin * 60)) * 100)) + '%';
+            });
+        }
+        setInterval(tickRelogio, 1000);
         const nomeEstacao = (id) => (estacoes.find((e) => e.id === id) || { nome: id }).nome;
 
         function desenharAbas() {
@@ -199,8 +239,12 @@
                 $('tickets').innerHTML = '<div class="vazio">✅ Nenhum pedido pendente' + (estacao ? ' nesta estação' : '') + '</div>';
                 return;
             }
-            $('tickets').innerHTML = dados.pedidos.map((p) => {
-                const classe = classeTempo(p.minutos);
+            // urgencia: o item mais antigo manda (um pedido com item parado sobe na frente)
+            const urgencia = (p) => Math.max(p.segundos || 0, ...p.itens.map((i) => i.segundos || 0));
+            const ordenados = [...dados.pedidos].sort((a, b) => urgencia(b) - urgencia(a));
+            $('tickets').innerHTML = ordenados.map((p) => {
+                const t0 = Date.now() - urgencia(p) * 1000;
+                const classe = classeTempo(Math.floor(urgencia(p) / 60));
                 const meta = [p.comanda ? 'Cmd ' + p.comanda : '', p.mesa ? 'Mesa ' + p.mesa : '', p.cliente || ''].filter(Boolean).map(esc).join(' • ');
                 const itens = p.itens.map((i) => `<li>
                         <span class="qtd">${esc(i.quantidade)}×</span>
@@ -215,15 +259,17 @@
                     ? `<button data-id="${p.id}" data-est="${esc(estacao)}">✔ Concluir ${esc(nomeEstacao(estacao))}</button>`
                     : p.estacoesEnvolvidas.filter((e) => !p.estacoesConcluidas.includes(e))
                         .map((e) => `<button data-id="${p.id}" data-est="${esc(e)}">✔ ${esc(nomeEstacao(e))}</button>`).join('');
-                return `<article class="ticket ${classe} ${p._novo ? 'novo' : ''}">
+                return `<article class="ticket ${classe} ${p._novo ? 'novo' : ''}" data-t0="${t0}">
                     <div class="cab"><div class="senha">${esc(p.senha)}</div>
-                        <div class="meta"><div class="tempo">${p.minutos} min</div>${meta}</div></div>
+                        <div class="meta"><div class="tempo">${mmss(urgencia(p))}</div>${meta}</div></div>
+                    <div class="barra"><i style="width:${Math.min(100, Math.round((urgencia(p) / (limiteMin * 60)) * 100))}%"></i></div>
                     <ul>${itens}</ul>
                     <div class="rodape">${chips}${botoes}</div>
                 </article>`;
             }).join('');
 
             $('tickets').querySelectorAll('.rodape button').forEach((b) => b.addEventListener('click', () => concluir(b)));
+            tickRelogio();
             dados.pedidos.forEach((p) => { p._novo = false; });
         }
 

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1120;font-family:Segoe UI,Arial,sans-serif;color:#f8fafc}
+  form{width:340px;max-width:92vw;background:#0f172a;border:1px solid #334155;border-radius:14px;padding:26px;display:flex;flex-direction:column;gap:14px}
+  h1{margin:0;font-size:18px}
+  label{font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase}
+  input{width:100%;margin-top:6px;background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:10px 12px;border-radius:8px;font-size:14px;outline:none}
+  button{background:#FF6B00;border:none;color:#fff;font-weight:700;padding:11px;border-radius:8px;font-size:14px;cursor:pointer}
+  button:disabled{opacity:.6}
+  #msg{min-height:16px;font-size:12px;color:#f87171}
+</style>
+</head>
+<body>
+<form id="f">
+  <h1>Acesso restrito</h1>
+  <div><label for="login">Usuário</label><input id="login" autocomplete="username" autofocus></div>
+  <div><label for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password"></div>
+  <div id="msg"></div>
+  <button id="btn" type="submit">Entrar</button>
+</form>
+<script>
+  document.getElementById('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn'), msg = document.getElementById('msg');
+    btn.disabled = true; msg.textContent = '';
+    try {
+      const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ login: document.getElementById('login').value, senha: document.getElementById('senha').value }) });
+      const j = await r.json();
+      if (j.success) {
+        const next = new URLSearchParams(location.search).get('next') || '/';
+        location.href = (next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\')) ? next : '/';
+      } else { msg.textContent = j.error || 'Falha no login'; }
+    } catch (err) { msg.textContent = 'Servidor indisponível'; }
+    btn.disabled = false;
+  });
+</script>
+</body>
+</html>

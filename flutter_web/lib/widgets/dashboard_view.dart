@@ -309,6 +309,10 @@ class _DashboardViewState extends State<DashboardView> {
         }),
         const SizedBox(height: 16),
         _cartao('Mais vendidos', _topProdutos(d)),
+        if (d['avaliacoes'] is Map && _i((d['avaliacoes'] as Map)['total']) > 0) ...[
+          const SizedBox(height: 16),
+          _cartao('Avaliação dos clientes', _avaliacoes((d['avaliacoes'] as Map).cast<String, dynamic>())),
+        ],
         const SizedBox(height: 24),
       ],
     );
@@ -421,6 +425,73 @@ class _DashboardViewState extends State<DashboardView> {
           Text(t, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.primary)),
         ],
       ),
+    );
+  }
+
+  /// Nota média, distribuição de 1 a 5 estrelas e últimos comentários.
+  Widget _avaliacoes(Map<String, dynamic> a) {
+    final total = _i(a['total']);
+    final media = _n(a['media']);
+    final dist = (a['distribuicao'] as Map).cast<String, dynamic>();
+    final recentes = ((a['recentes'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(media.toStringAsFixed(1).replaceAll('.', ','),
+                style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w900, color: AppTheme.textPrimary)),
+            const SizedBox(width: 6),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 22),
+            ),
+            const SizedBox(width: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('$total avaliações', style: const TextStyle(fontSize: 12.5, color: AppTheme.textMuted)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        for (var n = 5; n >= 1; n--)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                SizedBox(width: 22, child: Text('$n★', style: const TextStyle(fontSize: 12, color: AppTheme.textMuted))),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: total == 0 ? 0 : _i(dist['$n']) / total,
+                      minHeight: 8,
+                      backgroundColor: AppTheme.borderLight,
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFFF59E0B)),
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 30,
+                  child: Text('${_i(dist['$n'])}', textAlign: TextAlign.end, style: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+        if (recentes.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Text('Comentários recentes',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppTheme.textMuted)),
+          const SizedBox(height: 6),
+          for (final r in recentes)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Text('${'★' * _i(r['nota'])} · senha ${r['senha']} — ${r['comentario']}',
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary)),
+            ),
+        ],
+      ],
     );
   }
 

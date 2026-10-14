@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { startServer, logEvent } = require('./server/index');
 
@@ -48,6 +48,53 @@ async function createWindow() {
         mainWindow = null;
     });
 }
+
+// --- Servico do Windows (tarefa de inicializacao como SYSTEM), instalado com elevacao (UAC) ---
+const { execFile } = require('child_process');
+const fs = require('fs');
+const SERVICE_TASK = 'DusucoERP-Servidor';
+const SERVICE_SCRIPT = path.join(__dirname, 'service', 'service-admin.ps1');
+const SERVICE_LOG = path.join(__dirname, 'service', 'service-last.log');
+
+function serviceStatus() {
+    return new Promise((resolve) => {
+        execFile('schtasks.exe', ['/Query', '/TN', SERVICE_TASK, '/FO', 'LIST'], { windowsHide: true }, (err, out) => {
+            if (err) return resolve({ installed: false, running: false });
+            resolve({ installed: true, running: /Running|Em execu/i.test(out) });
+        });
+    });
+}
+
+function runElevated(action) {
+    return new Promise((resolve) => {
+        try { fs.rmSync(SERVICE_LOG, { force: true }); } catch (e) { /* ignora */ }
+        const inner = `-NoProfile -ExecutionPolicy Bypass -File "${SERVICE_SCRIPT}" -Action ${action}`;
+        const cmd = `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '${inner.replace(/'/g, "''")}'`;
+        execFile('powershell.exe', ['-NoProfile', '-Command', cmd], { windowsHide: true }, async (err) => {
+            if (err) return resolve({ ok: false, message: 'Permissão de administrador negada ou cancelada' });
+            let log = '';
+            try { log = fs.readFileSync(SERVICE_LOG, 'utf8').trim(); } catch (e) { /* ignora */ }
+            const st = await serviceStatus();
+            const ok = log.startsWith('OK');
+            resolve({ ok, message: log || 'Sem retorno do instalador', ...st });
+        });
+    });
+}
+
+ipcMain.handle('service-status', () => serviceStatus());
+ipcMain.handle('service-install', () => runElevated('install'));
+ipcMain.handle('service-uninstall', () => runElevated('uninstall'));
+
+// Seletor de arquivo da base (.FDB) para a tela de configuracao
+ipcMain.handle('pick-db-file', async (_e, current) => {
+    const r = await dialog.showOpenDialog(mainWindow, {
+        title: 'Selecionar base de dados',
+        defaultPath: current || undefined,
+        properties: ['openFile'],
+        filters: [{ name: 'Firebird', extensions: ['fdb', 'gdb'] }, { name: 'Todos', extensions: ['*'] }]
+    });
+    return r.canceled ? null : r.filePaths[0];
+});
 
 app.whenReady().then(createWindow);
 

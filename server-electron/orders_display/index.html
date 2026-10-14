@@ -1165,6 +1165,22 @@
     <script>
         // API Configuration: Relative path works directly on both 8082 and 8080!
         const API_HOST = window.location.origin;
+        // Um unico AudioContext reaproveitado (criar um por aviso esgota o limite do navegador)
+        let _ac = null;
+        function audioCtx() {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            if (!_ac) _ac = new AC();
+            if (_ac.state === 'suspended') { try { _ac.resume(); } catch (e) {} }
+            return _ac;
+        }
+        // Sessao expirada / acesso sem login: leva para a tela de login e volta para ca
+        let _indoLogin = false;
+        function irParaLogin() {
+            if (_indoLogin) return;
+            _indoLogin = true;
+            location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
+        }
 
         // Token opcional (servidor com API_TOKEN): abra o painel uma vez com ?token=SEU_TOKEN
         let API_TOKEN = '';
@@ -1178,7 +1194,10 @@
             if (API_TOKEN) {
                 opts = { ...opts, headers: { ...(opts.headers || {}), 'x-api-token': API_TOKEN } };
             }
-            return _nativeFetch(url, opts);
+            return _nativeFetch(url, opts).then((r) => {
+                if (r.status === 401 && !/\/api\/auth\//.test(String(url))) irParaLogin();
+                return r;
+            });
         };
 
         // Escape de HTML: textos vindos do banco/cliente nunca entram crus no innerHTML
@@ -1220,9 +1239,8 @@
         function beepAlerta() {
             if (alertaMudo) return;
             try {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (!AC) return;
-                const ctx = new AC();
+                const ctx = audioCtx();
+                if (!ctx) return;
                 [0, 0.25, 0.5].forEach((t) => {
                     const o = ctx.createOscillator();
                     const g = ctx.createGain();
@@ -1364,9 +1382,8 @@
         // --- Web Audio Chime (Ding Dong Bell) ---
         function playChime() {
             try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const ctx = new AudioContext();
+                const ctx = audioCtx();
+                if (!ctx) return;
 
                 const osc1 = ctx.createOscillator();
                 const gain1 = ctx.createGain();
@@ -1411,10 +1428,10 @@
             try {
                 let res;
                 try {
-                    res = await fetch(`${API_HOST}/api/orders?filter=TODOS&limit=100`);
+                    res = await fetch(`${API_HOST}/api/orders?filter=TODOS&limit=300`);
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 } catch(e) {
-                    res = await fetch(`http://${window.location.hostname}:8080/api/orders?filter=TODOS&limit=100`);
+                    res = await fetch(`http://${window.location.hostname}:8080/api/orders?filter=TODOS&limit=300`);
                 }
                 const data = await res.json();
                 if (data && data.success && Array.isArray(data.data)) {
@@ -1575,6 +1592,9 @@
                         playChime();
                     }
                     await fetchOrders();
+                } else {
+                    alert('Não foi possível alterar o pedido: ' + (data.error || 'erro desconhecido'));
+                    await fetchOrders();
                 }
             } catch (err) {
                 alert('Erro ao atualizar status: ' + err.message);
@@ -1677,6 +1697,8 @@
                     applyTheme({ nome, subtitulo, corPrimaria, corSecundaria: selectedSecondary || corPrimaria, modoTema });
                     document.getElementById('themeModal').style.display = 'none';
                     selectedLogoFile = null;
+                } else {
+                    alert('Não foi possível salvar: ' + (data.error || 'erro desconhecido'));
                 }
             } catch (err) {
                 alert('Erro ao salvar tema: ' + err.message);
@@ -1739,7 +1761,11 @@
         });
 
         // --- Print Ticket Button ---
+        let imprimindoTicket = false;
         document.getElementById('btnPrintTicket').addEventListener('click', async () => {
+            if (imprimindoTicket) return;
+            imprimindoTicket = true;
+            try {
             const senha = document.getElementById('inputSenha').value.trim();
             const comanda = document.getElementById('inputComanda').value.trim();
             const cliente = document.getElementById('inputCliente').value.trim();
@@ -1763,6 +1789,9 @@
             document.getElementById('inputComanda').value = '';
             document.getElementById('inputCliente').value = '';
             fetchOrders();
+            } finally {
+                setTimeout(() => { imprimindoTicket = false; }, 800);
+            }
         });
 
         // --- Filter Tabs Click Listeners ---

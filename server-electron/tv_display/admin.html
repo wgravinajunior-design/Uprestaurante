@@ -98,6 +98,9 @@
             <label class="check"><input type="checkbox" id="vozAtiva"> Chamar a senha na TV quando o pedido ficar pronto</label>
             <div class="row" style="margin-top:10px">
                 <label class="campo">Repetições da fala<select id="vozRepeticoes"><option>1</option><option>2</option><option>3</option></select></label>
+                <label class="campo">Frase falada (use {senha})
+                    <input type="text" id="vozTexto" maxlength="80" placeholder="Senha {senha}, pode retirar." style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:280px">
+                </label>
                 <button id="btnTestarVoz">🔊 Testar voz neste aparelho</button>
             </div>
         </section>
@@ -121,6 +124,9 @@
                 <label class="campo">Ou endereço público (domínio/túnel)
                     <input type="text" id="publicUrl" placeholder="https://loja.exemplo.com.br" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:260px">
                 </label>
+                <label class="campo">Link de avaliação do Google (oferecido após nota 5)
+                    <input type="text" id="googleUrl" placeholder="https://g.page/r/..../review" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:260px">
+                </label>
                 <button id="btnSalvarBase">Usar este endereço</button>
             </div>
             <div class="qrs" id="qrs"></div>
@@ -135,6 +141,20 @@
             <label class="check"><input type="checkbox" id="cdOcultarSemFoto"> Ocultar produtos sem foto</label>
             <label class="check"><input type="checkbox" id="cdOcultarSemEstoque"> Ocultar produtos com estoque zerado ou negativo</label>
             <label class="check"><input type="checkbox" id="cdMostrarDescricao"> Usar a observação do produto como descrição</label>
+            <label class="check"><input type="checkbox" id="cdPedidoOnline"> <b>Permitir pedido pelo cardápio</b> (o cliente monta o pedido, recebe uma senha e cai no KDS)</label>
+            <label class="check"><input type="checkbox" id="cdMaisPedidos"> Mostrar a seção <b>"Mais pedidos agora"</b> (calculada das vendas das últimas horas)</label>
+            <h2 style="margin-top:14px;font-size:14px">Prato do dia (destaque)</h2>
+            <p class="desc">Escolha, para cada dia da semana, os produtos que aparecem em destaque no topo do cardápio.</p>
+            <div class="row">
+                <input type="text" id="cdDestTitulo" maxlength="40" placeholder="Título (ex.: Prato do dia)" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:220px">
+                <select id="cdDestDia" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px">
+                    <option value="1">Segunda</option><option value="2">Terça</option><option value="3">Quarta</option>
+                    <option value="4">Quinta</option><option value="5">Sexta</option><option value="6">Sábado</option><option value="0">Domingo</option>
+                </select>
+                <input type="text" id="cdDestBusca" placeholder="Buscar produto para o destaque…" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:260px">
+            </div>
+            <div id="cdDestResultados" class="lista-simples"></div>
+            <div id="cdDestLista" class="lista-simples"></div>
             <h2 style="margin-top:14px;font-size:14px">Produtos ocultos</h2>
             <div class="row">
                 <input type="text" id="cdBusca" placeholder="Buscar produto para ocultar…" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:280px">
@@ -145,6 +165,39 @@
                 <button class="primario" id="btnSalvarCardapio">💾 Salvar cardápio</button>
                 <a href="#" id="linkCardapio" target="_blank" style="color:var(--primary);font-weight:700">Ver cardápio</a>
             </div>
+        </section>
+
+        <section id="secCupons">
+            <h2>Cupons de desconto</h2>
+            <p class="desc">O cliente digita o código no carrinho do cardápio (e no totem). Tipo <b>%</b> = percentual do pedido; <b>R$</b> = valor fixo. O desconto é calculado no servidor.</p>
+            <div id="cuponsLista"></div>
+            <div class="row" style="margin-top:10px">
+                <button id="btnAddCupom">+ Novo cupom</button>
+                <button class="primario" id="btnSalvarCupons">💾 Salvar cupons</button>
+            </div>
+        </section>
+
+        <section id="secTotem">
+            <h2>Totem / autoatendimento</h2>
+            <p class="desc">Abra este endereço em tela cheia (F11) no tablet ou totem do balcão. O cliente monta o pedido, recebe a senha e a tela volta ao início sozinha. Os pedidos chegam ao KDS como "TOTEM".</p>
+            <div class="row"><a href="#" id="linkTotem" target="_blank" style="color:var(--primary);font-weight:700"></a></div>
+            <p class="desc" style="margin-top:8px">Requer "Permitir pedido pelo cardápio" ligado na seção Cardápio digital.</p>
+        </section>
+
+        <section id="secWhats">
+            <h2>Pedido por WhatsApp</h2>
+            <p class="desc">Usa a API oficial do WhatsApp Business (Meta). O cliente envia "2 suco de laranja, 1 coxinha", confere o total e responde SIM; o sistema cria o pedido e responde com a senha.</p>
+            <label class="check"><input type="checkbox" id="wpAtivo"> Ativar pedidos por WhatsApp</label>
+            <div class="row" style="margin-top:8px">
+                <input type="text" id="wpPhone" placeholder="ID do número (Phone number ID)" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:260px">
+                <input type="password" id="wpToken" placeholder="Token de acesso (deixe vazio para manter)" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:300px">
+            </div>
+            <div class="row" style="margin-top:8px">
+                <input type="password" id="wpSecret" placeholder="App Secret (obrigatório: valida que a mensagem veio da Meta)" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:300px">
+                <input type="text" id="wpVerify" placeholder="Token de verificação (gerado ao salvar)" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:260px">
+            </div>
+            <p class="desc" style="margin-top:8px">URL do webhook (cole na Meta): <code id="wpUrl"></code></p>
+            <div class="row"><button class="primario" id="btnSalvarWhats">💾 Salvar WhatsApp</button></div>
         </section>
 
         <section id="secKds">
@@ -172,10 +225,20 @@
             if (q) localStorage.setItem('apiToken', q);
             TOKEN = localStorage.getItem('apiToken') || '';
         } catch (e) {}
+        // Sessao expirada / acesso sem login: leva para a tela de login e volta para ca
+        let _indoLogin = false;
+        function irParaLogin() {
+            if (_indoLogin) return;
+            _indoLogin = true;
+            location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
+        }
         function api(path, opts = {}) {
             const headers = Object.assign({}, opts.headers || {});
             if (TOKEN) headers['x-api-token'] = TOKEN;
-            return fetch(API + path, Object.assign({}, opts, { headers }));
+            return fetch(API + path, Object.assign({}, opts, { headers })).then((r) => {
+                if (r.status === 401) irParaLogin();
+                return r;
+            });
         }
         function aviso(msg, ok = true) {
             const el = document.getElementById('aviso');
@@ -187,8 +250,14 @@
         }
         const $ = (id) => document.getElementById(id);
 
-        document.getElementById('linkTv').href = location.protocol + '//' + location.hostname + ':8081/';
-        document.getElementById('linkPedidos').href = location.protocol + '//' + location.hostname + ':8082/';
+        // Atras do tunel (tv.dominio) cada tela tem seu subdominio; em rede local usa IP:porta
+        function urlTela(sub, porta, caminho) {
+            const h = location.hostname;
+            if (/^tv\./i.test(h)) return location.protocol + '//' + (sub === 'tv' ? h : h.replace(/^tv\./i, sub + '.')) + caminho;
+            return location.protocol + '//' + h + ':' + porta + caminho;
+        }
+        document.getElementById('linkTv').href = urlTela('tv', 8081, '/');
+        document.getElementById('linkPedidos').href = urlTela('senhas', 8082, '/');
 
         function marcarLayout(v) {
             document.querySelectorAll('.layout-op').forEach((el) => {
@@ -207,6 +276,7 @@
             ['tvDuracaoSeg', 'tvGradeItens', 'tvBannerACada', 'alertaPreparoMin', 'alertaIgnorarMin'].forEach((k) => { $(k).value = d[k]; });
             $('vozAtiva').checked = d.vozAtiva !== false;
             $('vozRepeticoes').value = String(d.vozRepeticoes || 2);
+            $('vozTexto').value = d.vozTexto || 'Senha {senha}, pode retirar.';
             await carregarBanners();
         }
 
@@ -255,7 +325,8 @@
                 alertaPreparoMin: parseInt($('alertaPreparoMin').value, 10),
                 alertaIgnorarMin: parseInt($('alertaIgnorarMin').value, 10),
                 vozAtiva: $('vozAtiva').checked,
-                vozRepeticoes: parseInt($('vozRepeticoes').value, 10)
+                vozRepeticoes: parseInt($('vozRepeticoes').value, 10),
+                vozTexto: $('vozTexto').value
             };
             const r = await api('/api/company/theme', {
                 method: 'PUT',
@@ -269,7 +340,7 @@
 
         $('btnTestarVoz').addEventListener('click', () => {
             if (!window.speechSynthesis) return aviso('Este navegador não tem voz', false);
-            const u = new SpeechSynthesisUtterance('Senha quarenta e dois, pedido pronto.');
+            const u = new SpeechSynthesisUtterance(($('vozTexto').value || 'Senha {senha}, pode retirar.').replace('{senha}', 'quarenta e dois'));
             u.lang = 'pt-BR';
             u.rate = 0.9;
             const v = speechSynthesis.getVoices().find((x) => (x.lang || '').toLowerCase().startsWith('pt'));
@@ -320,6 +391,7 @@
                 sel.appendChild(o);
             }
             $('publicUrl').value = d.publicUrl || '';
+            $('googleUrl').value = d.googleReviewUrl || '';
             baseAtual = d.baseSugerida;
             if (!d.publicUrl && sel.options.length) baseAtual = sel.value;
             desenharQrs();
@@ -329,7 +401,7 @@
             const u = $('publicUrl').value.trim();
             const r = await api('/api/company/theme', {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ publicUrl: u })
+                body: JSON.stringify({ publicUrl: u, googleReviewUrl: $('googleUrl').value.trim() })
             });
             const j = await r.json().catch(() => ({}));
             if (!r.ok) return aviso(j.error || 'Endereço inválido', false);
@@ -371,6 +443,11 @@
             $('cdOcultarSemFoto').checked = !!c.ocultarSemFoto;
             $('cdOcultarSemEstoque').checked = !!c.ocultarSemEstoque;
             $('cdMostrarDescricao').checked = !!c.mostrarDescricao;
+            $('cdPedidoOnline').checked = !!c.pedidoOnline;
+            $('cdMaisPedidos').checked = c.mostrarMaisPedidos !== false;
+            $('cdDestTitulo').value = c.destaqueTitulo || 'Prato do dia';
+            cdDestaques = c.destaques || {};
+            $('cdDestDia').value = String(new Date().getDay());
             cdOcultos = c.ocultos || [];
             // nomes dos ja ocultos
             await Promise.all(cdOcultos.slice(0, 60).map(async (id) => {
@@ -380,9 +457,72 @@
                     if (jj.data) nomesProdutos[id] = jj.data.descricao;
                 } catch (e) {}
             }));
+            await Promise.all(Object.values(cdDestaques).flat().slice(0, 40).map(async (id) => {
+                if (nomesProdutos[id]) return;
+                try {
+                    const rr = await api('/api/products/' + id);
+                    const jj = await rr.json();
+                    if (jj.data) nomesProdutos[id] = jj.data.descricao;
+                } catch (e) {}
+            }));
+            pintarDestaques();
             pintarOcultos();
             $('linkCardapio').href = location.protocol + '//' + location.hostname + ':8083/cardapio';
         }
+        // ---- prato do dia: produtos por dia da semana ----
+        let cdDestaques = {};
+        function pintarDestaques() {
+            const dia = $('cdDestDia').value;
+            const ids = cdDestaques[dia] || [];
+            const box = $('cdDestLista');
+            box.innerHTML = '';
+            if (!ids.length) { box.textContent = 'Nenhum produto em destaque neste dia.'; return; }
+            ids.forEach((id) => {
+                const linha = document.createElement('div');
+                linha.className = 'lista-linha';
+                const t = document.createElement('span');
+                t.textContent = nomesProdutos[id] || ('Produto #' + id);
+                const b = document.createElement('button');
+                b.textContent = 'Remover';
+                b.addEventListener('click', () => {
+                    cdDestaques[dia] = (cdDestaques[dia] || []).filter((x) => x !== id);
+                    pintarDestaques();
+                });
+                linha.append(t, b);
+                box.appendChild(linha);
+            });
+        }
+        $('cdDestDia').addEventListener('change', pintarDestaques);
+        let destTimer = null;
+        $('cdDestBusca').addEventListener('input', () => {
+            clearTimeout(destTimer);
+            const termo = $('cdDestBusca').value.trim();
+            if (termo.length < 2) { $('cdDestResultados').innerHTML = ''; return; }
+            destTimer = setTimeout(async () => {
+                const r = await api('/api/products?pageSize=8&search=' + encodeURIComponent(termo));
+                const j = await r.json();
+                const box = $('cdDestResultados');
+                box.innerHTML = '';
+                ((j.data || {}).items || []).forEach((p) => {
+                    nomesProdutos[p.id] = p.descricao;
+                    const linha = document.createElement('div');
+                    linha.className = 'lista-linha';
+                    const t = document.createElement('span');
+                    t.textContent = p.descricao;
+                    const b = document.createElement('button');
+                    b.textContent = 'Destacar';
+                    b.addEventListener('click', () => {
+                        const dia = $('cdDestDia').value;
+                        const l = cdDestaques[dia] || (cdDestaques[dia] = []);
+                        if (!l.includes(p.id) && l.length < 12) l.push(p.id);
+                        pintarDestaques();
+                    });
+                    linha.append(t, b);
+                    box.appendChild(linha);
+                });
+            }, 300);
+        });
+
         let buscaTimer = null;
         $('cdBusca').addEventListener('input', () => {
             clearTimeout(buscaTimer);
@@ -417,6 +557,10 @@
                     ocultarSemFoto: $('cdOcultarSemFoto').checked,
                     ocultarSemEstoque: $('cdOcultarSemEstoque').checked,
                     mostrarDescricao: $('cdMostrarDescricao').checked,
+                    pedidoOnline: $('cdPedidoOnline').checked,
+                    mostrarMaisPedidos: $('cdMaisPedidos').checked,
+                    destaqueTitulo: $('cdDestTitulo').value,
+                    destaques: cdDestaques,
                     ocultos: cdOcultos
                 })
             });
@@ -461,6 +605,30 @@
                 topo.append(nome, padrao, rem);
                 card.appendChild(topo);
 
+                // impressora da estacao (comanda impressa automaticamente quando o pedido entra)
+                const imp = document.createElement('div');
+                imp.className = 'row';
+                imp.style.marginTop = '8px';
+                const impIn = document.createElement('input');
+                impIn.type = 'text'; impIn.setAttribute('list', 'listaImpressoras'); impIn.maxLength = 100;
+                impIn.value = e.impressora || ''; impIn.placeholder = '🖨️ Impressora da estação (vazio = não imprime)';
+                impIn.style.cssText = 'padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:300px';
+                impIn.addEventListener('input', () => { e.impressora = impIn.value; });
+                const impTeste = document.createElement('button');
+                impTeste.textContent = 'Imprimir teste';
+                impTeste.addEventListener('click', async () => {
+                    if (!impIn.value.trim()) return aviso('Informe a impressora', false);
+                    const rr = await api('/api/kds/printers/test', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ impressora: impIn.value.trim(), estacao: e.nome })
+                    });
+                    const jj = await rr.json().catch(() => ({}));
+                    if (rr.ok && jj.success) aviso('Teste enviado para a impressora');
+                    else aviso(jj.error || 'Falha ao imprimir', false);
+                });
+                imp.append(impIn, impTeste);
+                card.appendChild(imp);
+
                 const lista = (titulo, itens, selecionados) => {
                     const wrap = document.createElement('div');
                     wrap.className = 'kds-bloco';
@@ -497,8 +665,16 @@
             const j = await r.json();
             kdsCfg = j.data.config;
             kdsOpcoes = j.data.opcoes;
+            try {
+                const pr = await api('/api/kds/printers');
+                const pj = await pr.json();
+                let dl = document.getElementById('listaImpressoras');
+                if (!dl) { dl = document.createElement('datalist'); dl.id = 'listaImpressoras'; document.body.appendChild(dl); }
+                dl.innerHTML = '';
+                (pj.data || []).forEach((n) => { const o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+            } catch (err) { /* sem lista: digitar o nome */ }
             pintarKds();
-            $('linkKds').href = location.protocol + '//' + location.hostname + ':8082/kds/';
+            $('linkKds').href = urlTela('senhas', 8082, '/kds/');
         }
         $('btnAddEstacao').addEventListener('click', () => {
             const n = kdsCfg.estacoes.length + 1;
@@ -515,7 +691,100 @@
             else aviso(j.error || 'Não foi possível salvar', false);
         });
 
-        Promise.all([carregarQr(), carregarCardapio(), carregarKds()]).catch(() => aviso('Alguns blocos não carregaram', false));
+        // =====================================================================
+        // Cupons, totem e WhatsApp
+        // =====================================================================
+        let cuponsCfg = [];
+        function pintarCupons() {
+            const box = $('cuponsLista');
+            box.innerHTML = '';
+            if (!cuponsCfg.length) { box.textContent = 'Nenhum cupom cadastrado.'; return; }
+            cuponsCfg.forEach((c, idx) => {
+                const linha = document.createElement('div');
+                linha.className = 'row';
+                linha.style.cssText = 'margin-bottom:6px;gap:6px;flex-wrap:wrap';
+                const campo = (tipo, ph, val, w, cb) => {
+                    const i = document.createElement('input');
+                    i.type = tipo; i.placeholder = ph; i.value = val === null || val === undefined ? '' : val;
+                    i.style.cssText = 'padding:7px 9px;border:1px solid var(--border);border-radius:8px;width:' + w + 'px';
+                    i.addEventListener('input', () => cb(i.value));
+                    return i;
+                };
+                const cod = campo('text', 'CÓDIGO', c.codigo, 120, (v) => { c.codigo = v.toUpperCase(); });
+                const tipo = document.createElement('select');
+                tipo.innerHTML = '<option value="P">%</option><option value="V">R$</option>';
+                tipo.value = c.tipo || 'P';
+                tipo.addEventListener('change', () => { c.tipo = tipo.value; });
+                const valor = campo('number', 'Valor', c.valor, 80, (v) => { c.valor = v; });
+                const ate = campo('date', 'Validade', c.validoAte || '', 140, (v) => { c.validoAte = v || null; });
+                const lim = campo('number', 'Limite de usos', c.limiteUso, 110, (v) => { c.limiteUso = v === '' ? null : v; });
+                const min = campo('number', 'Pedido mín.', c.minimo || '', 100, (v) => { c.minimo = v; });
+                const ativo = document.createElement('label');
+                ativo.className = 'check';
+                const ck = document.createElement('input');
+                ck.type = 'checkbox'; ck.checked = c.ativo !== false;
+                ck.addEventListener('change', () => { c.ativo = ck.checked; });
+                ativo.append(ck, document.createTextNode(' ativo'));
+                const usos = document.createElement('span');
+                usos.style.cssText = 'font-size:12px;color:var(--muted)';
+                usos.textContent = (c.usados || 0) + ' uso(s)';
+                const rem = document.createElement('button');
+                rem.textContent = 'Remover';
+                rem.addEventListener('click', () => { cuponsCfg.splice(idx, 1); pintarCupons(); });
+                linha.append(cod, tipo, valor, ate, lim, min, ativo, usos, rem);
+                box.appendChild(linha);
+            });
+        }
+        async function carregarCupons() {
+            const r = await api('/api/cupons');
+            cuponsCfg = (await r.json()).data || [];
+            pintarCupons();
+        }
+        $('btnAddCupom').addEventListener('click', () => { cuponsCfg.push({ codigo: '', tipo: 'P', valor: 10, validoAte: null, limiteUso: null, minimo: 0, ativo: true, usados: 0 }); pintarCupons(); });
+        $('btnSalvarCupons').addEventListener('click', async () => {
+            const r = await api('/api/cupons', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuponsCfg) });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && j.success) { cuponsCfg = j.data; pintarCupons(); aviso('Cupons salvos'); }
+            else aviso(j.error || 'Não foi possível salvar', false);
+        });
+
+        function urlPublica(caminho) {
+            const base = ($('publicUrl').value || '').trim().replace(/\/+$/, '');
+            return (base || (location.protocol + '//' + location.hostname + ':8083')) + caminho;
+        }
+        function atualizarLinksNovos() {
+            const t = urlPublica('/totem');
+            $('linkTotem').href = t; $('linkTotem').textContent = t;
+            $('wpUrl').textContent = urlPublica('/api/public/whatsapp');
+            $('linkCardapio').href = urlPublica('/cardapio');
+        }
+
+        async function carregarWhats() {
+            try {
+                const r = await api('/api/whatsapp/config');
+                const c = (await r.json()).data || {};
+                $('wpAtivo').checked = !!c.ativo;
+                $('wpPhone').value = c.phoneNumberId || '';
+                $('wpVerify').value = c.verifyToken || '';
+                $('wpToken').placeholder = c.temToken ? 'Token salvo (deixe vazio para manter)' : 'Token de acesso';
+                $('wpSecret').placeholder = c.temAppSecret ? 'App Secret salvo (deixe vazio para manter)' : 'App Secret (obrigatório: valida que a mensagem veio da Meta)';
+            } catch (e) { /* so disponivel no servidor */ }
+        }
+        $('btnSalvarWhats').addEventListener('click', async () => {
+            const r = await api('/api/whatsapp/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ativo: $('wpAtivo').checked, phoneNumberId: $('wpPhone').value, token: $('wpToken').value,
+                    appSecret: $('wpSecret').value, verifyToken: $('wpVerify').value
+                })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && j.success) { $('wpToken').value = ''; $('wpSecret').value = ''; await carregarWhats(); aviso('WhatsApp salvo'); }
+            else aviso(j.error || 'Não foi possível salvar (disponível só no servidor)', false);
+        });
+
+        $('publicUrl').addEventListener('input', atualizarLinksNovos);
+        Promise.all([carregarQr(), carregarCardapio(), carregarKds(), carregarCupons(), carregarWhats()]).then(atualizarLinksNovos).catch(() => aviso('Alguns blocos não carregaram', false));
 
         carregar().catch(() => aviso('Não foi possível carregar as configurações', false));
     </script>

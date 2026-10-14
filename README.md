@@ -47,7 +47,7 @@ O ERP guarda uma promoção por produto. Para deixar a "promoção da sexta" pro
 - Banners: imagens enviadas em `/admin.html`, guardadas em `config/banners/`.
 
 ## Área do cliente (QR Code, senha e cardápio)
-- A porta **8083** é separada e **somente leitura**: expõe só `/senha`, `/cardapio`, `/api/public/*`, a foto do produto e o logotipo. A API administrativa (8080) não é acessível por ela. Libere no firewall **apenas a 8083** para o Wi-Fi dos clientes.
+- A porta **8083** é separada e **não dá acesso à API administrativa (8080)**: expõe só `/senha`, `/cardapio`, `/totem`, `/api/public/*`, a foto do produto e o logotipo. Só aceita escrita em `POST /api/public/{order,coupon,rating,push/subscribe,whatsapp}`, todas validadas e limitadas por visitante. Libere no firewall **apenas a 8083** para o Wi-Fi dos clientes.
 - Os QR Codes (cardápio e senha) são gerados e impressos em `http://localhost:8081/admin.html`; o cupom do painel de pedidos também imprime o QR da senha.
 - O cliente digita a senha (ou lê o QR do cupom) e é avisado na própria tela, por vibração, som e notificação, quando o pedido fica pronto.
 - Cardápio: grupos "exibir no touch" do ERP, promoções vigentes em destaque, produtos ocultáveis em `/admin.html`.
@@ -60,6 +60,21 @@ O ERP guarda uma promoção por produto. Para deixar a "promoção da sexta" pro
 ## Dashboard e "o que mudou hoje"
 - Dashboard (`GET /api/dashboard`): vendas finalizadas (`PEV_STATUS = 'F'`), faturamento, pedidos, ticket médio, comparativo, horários de pico, dia da semana e mais vendidos.
 - Mudanças do dia (`GET /api/changes`): auditoria do ERP e deste sistema, movimentos de estoque que não são venda e produtos alterados sem detalhe.
+
+## Acesso pela internet, login e túnel
+- **Login:** acessos que chegam pelo túnel Cloudflare exigem login com `USU_LOGIN`/`USU_SENHA` da `TB_USUARIO` (usuários com `USU_STATUS = 'A'`). Sem login ficam apenas a **vitrine da TV** (leitura) e as telas do cliente (`/cardapio`, `/senha`, `/totem`). Acesso direto na própria máquina não exige login; com `AUTH_LAN=1` a rede local também exige.
+- **Túnel:** botão "Túnel & Serviço" do painel do servidor (cloudflared; modo rápido ou nomeado por token). Rotas sugeridas no painel da Cloudflare: `dusuco`→`http://localhost:8083`, `tv`→`http://localhost:8081`, `senhas`→`http://localhost:8082` (sempre `http://`, nunca `https://`). **Não publique a 8080.**
+- **Serviço do Windows:** instala uma tarefa de inicialização (SYSTEM) que roda `node server/index.js`; pede permissão de administrador. Rode o app **ou** o serviço, não os dois.
+- **Banco:** botão "Base de Dados" no painel do servidor (host, porta, caminho, testar e salvar em `config/db.json`).
+
+## Pedido online, totem e WhatsApp
+- **Pedido pelo cardápio:** admin da TV → Cardápio digital → "Permitir pedido pelo cardápio". Preços sempre vêm do cadastro; o pedido ganha senha e cai no KDS.
+- **Cupons:** admin da TV → Cupons (percentual ou valor, validade, limite de usos, mínimo). **Upsell:** "quem pediu isso também levou" (vendas dos 90 dias anteriores à última venda). **Prato do dia** e **mais pedidos agora** no topo do cardápio.
+- **Totem:** `/totem` (tela cheia no balcão): volta ao início sozinho.
+- **Push:** aviso de "senha pronta" no celular (Web Push, chaves VAPID em `config/push.json`).
+- **Avaliação:** nota 1–5 após o pronto; resumo no dashboard; nota 5 oferece o link de avaliação do Google.
+- **Impressão por estação:** impressora de cada estação do KDS (admin da TV); imprime a comanda ao entrar o pedido.
+- **WhatsApp:** API oficial da Meta (config em admin da TV; webhook `/api/public/whatsapp`).
 
 ## Endpoints principais
 `GET /api/products` · `PUT /api/products/:id/{price,promotion,stock,status,quick-edit,fields}` ·

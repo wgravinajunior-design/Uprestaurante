@@ -19,3 +19,7 @@ server-electron/config/*
 *.fdb
 *.FDB
 *.bak
+
+# Gerado na instalacao do servico
+server-electron/service/run-server.cmd
+server-electron/config/auth_secret.json
