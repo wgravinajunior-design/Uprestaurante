@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#EA580C">
+    <title>Acompanhe seu pedido</title>
+    <style>
+        :root {
+            --primary: #EA580C; --primary-2: #FF6B00;
+            --bg: #F8FAFC; --card: #FFFFFF; --text: #0F172A; --muted: #64748B; --border: #E2E8F0;
+            --ok: #059669; --ok-bg: #D1FAE5; --warn: #D97706; --warn-bg: #FEF3C7; --err: #DC2626;
+        }
+        body.dark { --bg: #0B1120; --card: #1E293B; --text: #F8FAFC; --muted: #94A3B8; --border: #334155; --ok-bg: rgba(16,185,129,.18); --warn-bg: rgba(245,158,11,.18); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom); }
+        header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--card); border-bottom: 1px solid var(--border); }
+        header img { height: 38px; max-width: 120px; object-fit: contain; }
+        header .nome { font-weight: 800; font-size: 17px; }
+        header .sub { font-size: 12px; color: var(--muted); }
+        main { max-width: 480px; margin: 0 auto; padding: 18px 16px 40px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px; }
+        h1 { font-size: 20px; margin: 0 0 6px; }
+        p.desc { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+        .entrada { display: flex; gap: 10px; }
+        .entrada input { flex: 1; min-width: 0; font-size: 34px; font-weight: 800; text-align: center; letter-spacing: 2px; padding: 12px; border-radius: 14px; border: 2px solid var(--border); background: var(--bg); color: var(--text); }
+        .entrada input:focus { outline: none; border-color: var(--primary); }
+        button { font: inherit; cursor: pointer; border: 0; border-radius: 14px; padding: 14px 18px; font-weight: 800; background: var(--primary); color: #fff; }
+        button.sec { background: transparent; color: var(--muted); border: 1px solid var(--border); font-weight: 700; }
+        .erro { color: var(--err); font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+        .senha-box { text-align: center; padding: 8px 0 14px; }
+        .senha-box .rotulo { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 2px; }
+        .senha-box .numero { font-size: 92px; line-height: 1; font-weight: 900; color: var(--primary); }
+        .estado { text-align: center; font-size: 19px; font-weight: 800; margin: 4px 0 16px; }
+        .passos { display: flex; gap: 6px; margin: 6px 0 18px; }
+        .passo { flex: 1; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+        .passo .barra { height: 8px; border-radius: 99px; background: var(--border); margin-bottom: 6px; }
+        .passo.ativo { color: var(--primary); }
+        .passo.ativo .barra { background: var(--primary); animation: pulso 1.4s ease-in-out infinite; }
+        .passo.feito { color: var(--ok); }
+        .passo.feito .barra { background: var(--ok); }
+        @keyframes pulso { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+        .info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .info div { background: var(--bg); border-radius: 12px; padding: 10px 12px; font-size: 12px; color: var(--muted); }
+        .info b { display: block; font-size: 20px; color: var(--text); }
+        .acoes { display: grid; gap: 10px; margin-top: 18px; }
+        .aviso-ativo { font-size: 13px; color: var(--ok); text-align: center; font-weight: 700; }
+
+        .pronto { position: fixed; inset: 0; z-index: 50; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 24px; background: linear-gradient(160deg, #10B981, #047857); color: #fff; }
+        .pronto.show { display: flex; animation: entra .35s ease-out; }
+        .pronto .grande { font-size: 30px; font-weight: 900; letter-spacing: 1px; }
+        .pronto .n { font-size: 150px; font-weight: 900; line-height: 1; animation: pulso 1.2s ease-in-out infinite; }
+        .pronto .peq { font-size: 18px; opacity: .95; }
+        .pronto button { background: #fff; color: #047857; margin-top: 18px; }
+        @keyframes entra { from { opacity: 0; transform: scale(1.04); } to { opacity: 1; transform: scale(1); } }
+
+        .offline { display: none; background: var(--err); color: #fff; text-align: center; padding: 8px; font-size: 13px; font-weight: 700; }
+        .offline.show { display: block; }
+        .oculto { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="offline" id="offline">Sem conexão — tentando reconectar…</div>
+    <header>
+        <img id="logo" alt="" onerror="this.style.display='none'">
+        <div><div class="nome" id="nomeLoja">Seu pedido</div><div class="sub" id="subLoja">Acompanhe a senha pelo celular</div></div>
+    </header>
+
+    <main>
+        <!-- 1) digitar a senha -->
+        <section class="card" id="telaEntrada">
+            <h1>Qual é a sua senha?</h1>
+            <p class="desc">Digite o número que está no seu comprovante. Avisamos aqui, no seu celular, quando o pedido ficar pronto.</p>
+            <form class="entrada" id="formSenha">
+                <input id="inputSenha" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="00" aria-label="Número da senha">
+                <button type="submit">Acompanhar</button>
+            </form>
+            <div class="erro" id="erroEntrada"></div>
+        </section>
+
+        <!-- 2) acompanhamento -->
+        <section class="card oculto" id="telaStatus">
+            <div class="senha-box"><div class="rotulo">SUA SENHA</div><div class="numero" id="numSenha">--</div></div>
+            <div class="estado" id="textoEstado">Consultando…</div>
+            <div class="passos" id="passos">
+                <div class="passo" data-p="1"><div class="barra"></div>Recebido</div>
+                <div class="passo" data-p="2"><div class="barra"></div>Preparando</div>
+                <div class="passo" data-p="3"><div class="barra"></div>Pronto</div>
+            </div>
+            <div class="info" id="info"></div>
+            <div class="acoes">
+                <button id="btnAvisar">🔔 Avisar neste aparelho</button>
+                <div class="aviso-ativo oculto" id="avisoAtivo">✔ Você será avisado aqui quando ficar pronto. Mantenha esta página aberta.</div>
+                <button class="sec" id="btnTrocar">Trocar senha</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- 3) pronto! -->
+    <div class="pronto" id="telaPronto" role="alert">
+        <div class="peq">SENHA</div>
+        <div class="n" id="prontoNum">--</div>
+        <div class="grande">SEU PEDIDO ESTÁ PRONTO!</div>
+        <div class="peq">Retire no balcão. Bom proveito! 😋</div>
+        <button id="btnOk">Ok, já vou buscar</button>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+        const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+        const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) {} };
+
+        let senha = null;
+        let estadoAnterior = null;
+        let timer = null;
+        let pronto = false;
+        let wakeLock = null;
+        let avisosAtivos = lsGet('avisosAtivos') === '1';
+
+        // ---- marca da loja ----
+        fetch('/api/public/info').then((r) => r.json()).then((j) => {
+            const d = j.data || {};
+            $('nomeLoja').textContent = d.nome || 'Seu pedido';
+            $('subLoja').textContent = d.subtitulo || 'Acompanhe a senha pelo celular';
+            if (d.corPrimaria) { document.documentElement.style.setProperty('--primary', d.corPrimaria); document.querySelector('meta[name=theme-color]').content = d.corPrimaria; }
+            if (d.modoTema === 'dark') document.body.classList.add('dark');
+            $('logo').src = d.logoUrl + '?t=' + Date.now();
+        }).catch(() => {});
+
+        function offline(v) { $('offline').classList.toggle('show', v); }
+
+        // ---- entrada ----
+        $('formSenha').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const v = $('inputSenha').value.replace(/\D/g, '');
+            if (!v) { $('erroEntrada').textContent = 'Digite o número da senha.'; return; }
+            iniciar(v);
+        });
+        $('btnTrocar').addEventListener('click', () => {
+            lsDel('senhaCliente');
+            parar();
+            $('telaStatus').classList.add('oculto');
+            $('telaEntrada').classList.remove('oculto');
+            $('inputSenha').value = '';
+            history.replaceState(null, '', location.pathname);
+        });
+        $('btnOk').addEventListener('click', () => $('telaPronto').classList.remove('show'));
+
+        function iniciar(v) {
+            senha = String(parseInt(v, 10));
+            lsSet('senhaCliente', senha);
+            lsSet('senhaDia', new Date().toDateString());
+            estadoAnterior = null;
+            pronto = false;
+            $('telaEntrada').classList.add('oculto');
+            $('telaStatus').classList.remove('oculto');
+            $('numSenha').textContent = senha.padStart(2, '0');
+            $('textoEstado').textContent = 'Consultando…';
+            consultar();
+            parar();
+            timer = setInterval(consultar, 8000);
+            conectarEventos();
+            atualizarBotaoAvisar();
+        }
+        function parar() { if (timer) { clearInterval(timer); timer = null; } }
+
+        // ---- consulta ----
+        async function consultar() {
+            if (!senha) return;
+            try {
+                const r = await fetch('/api/public/senha/' + encodeURIComponent(senha), { cache: 'no-store' });
+                const j = await r.json();
+                offline(false);
+                if (!j.success) { $('textoEstado').textContent = j.error || 'Não foi possível consultar'; return; }
+                mostrar(j.data);
+            } catch (e) {
+                offline(true);
+            }
+        }
+
+        function mostrar(d) {
+            $('numSenha').textContent = d.senha;
+            const info = [];
+            let passo = 0;
+            let txt = '';
+            if (!d.encontrado) {
+                txt = 'Ainda não encontramos esta senha hoje. Confira o número no comprovante — vamos continuar tentando.';
+                passo = 0;
+            } else if (d.estado === 'PREPARO') {
+                passo = 2;
+                txt = d.aFrente > 0 ? 'Estamos preparando o seu pedido' : 'Seu pedido é o próximo!';
+                if (d.aguardandoMin !== null) info.push(['Aguardando há', d.aguardandoMin + ' min']);
+                if (d.aFrente !== null) info.push(['Na sua frente', d.aFrente === 0 ? 'ninguém' : d.aFrente + (d.aFrente === 1 ? ' pedido' : ' pedidos')]);
+                if (d.tempoMedioMin) info.push(['Tempo médio hoje', '~' + d.tempoMedioMin + ' min']);
+                if (d.itens) info.push(['Itens', String(d.itens)]);
+            } else if (d.estado === 'PRONTO') {
+                passo = 3;
+                txt = '✅ Pronto! Pode retirar no balcão';
+            } else if (d.estado === 'ENTREGUE') {
+                passo = 4;
+                txt = 'Pedido entregue. Obrigado e bom proveito! 😋';
+            } else if (d.estado === 'CANCELADO') {
+                passo = 0;
+                txt = 'Este pedido foi cancelado. Fale com o atendimento.';
+            }
+            $('textoEstado').textContent = txt;
+            document.querySelectorAll('.passo').forEach((el) => {
+                const p = parseInt(el.dataset.p, 10);
+                el.classList.toggle('feito', passo > p || passo === 4);
+                el.classList.toggle('ativo', passo === p && passo < 4);
+            });
+            $('info').innerHTML = info.map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('');
+            $('info').classList.toggle('oculto', info.length === 0);
+
+            if (d.encontrado && d.estado === 'PRONTO' && estadoAnterior !== 'PRONTO' && !pronto) {
+                pronto = true;
+                avisarPronto(d.senha);
+            }
+            if (d.encontrado && d.estado === 'ENTREGUE') { lsDel('senhaCliente'); parar(); }
+            estadoAnterior = d.encontrado ? d.estado : estadoAnterior;
+        }
+
+        // ---- aviso de pronto: tela, vibração, som, voz e notificação ----
+        function avisarPronto(n) {
+            $('prontoNum').textContent = n;
+            $('telaPronto').classList.add('show');
+            try { if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 800]); } catch (e) {}
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) {
+                    const ctx = new AC();
+                    [[880, 0], [1174.66, 0.25], [880, 0.5], [1174.66, 0.75]].forEach(([f, t]) => {
+                        const o = ctx.createOscillator(); const g = ctx.createGain();
+                        o.type = 'sine'; o.frequency.value = f;
+                        g.gain.setValueAtTime(0.35, ctx.currentTime + t);
+                        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.6);
+                        o.connect(g); g.connect(ctx.destination);
+                        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.6);
+                    });
+                }
+            } catch (e) {}
+            try {
+                if (window.speechSynthesis) {
+                    const u = new SpeechSynthesisUtterance('Sua senha ' + parseInt(n, 10) + ' está pronta.');
+                    u.lang = 'pt-BR';
+                    speechSynthesis.speak(u);
+                }
+            } catch (e) {}
+            try {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Pedido pronto! 🎉', { body: 'Sua senha ' + n + ' está pronta. Retire no balcão.', tag: 'pedido-pronto', requireInteraction: true });
+                }
+            } catch (e) {}
+            let ligado = true;
+            const titulo = document.title;
+            const pisca = setInterval(() => { document.title = ligado ? '✅ PEDIDO PRONTO!' : titulo; ligado = !ligado; }, 900);
+            setTimeout(() => { clearInterval(pisca); document.title = titulo; }, 60000);
+        }
+
+        // ---- avisos neste aparelho ----
+        function atualizarBotaoAvisar() {
+            $('btnAvisar').classList.toggle('oculto', avisosAtivos);
+            $('avisoAtivo').classList.toggle('oculto', !avisosAtivos);
+        }
+        $('btnAvisar').addEventListener('click', async () => {
+            // o toque libera audio/voz/vibração e a permissão de notificação
+            try { if (window.speechSynthesis) speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
+            try { if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); } catch (e) {}
+            try {
+                if (navigator.wakeLock) {
+                    wakeLock = await navigator.wakeLock.request('screen'); // mantém a tela acesa
+                }
+            } catch (e) {}
+            avisosAtivos = true;
+            lsSet('avisosAtivos', '1');
+            atualizarBotaoAvisar();
+        });
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                consultar();
+                try { if (avisosAtivos && navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+            }
+        });
+
+        // ---- tempo real ----
+        let es = null;
+        function conectarEventos() {
+            if (es || !window.EventSource) return;
+            es = new EventSource('/api/public/events');
+            es.addEventListener('orders', () => consultar());
+            es.addEventListener('hello', () => { offline(false); consultar(); });
+            es.onerror = () => offline(true);
+        }
+
+        // ---- início: ?s=42 ou a última senha deste aparelho (do mesmo dia) ----
+        (function boot() {
+            const q = new URLSearchParams(location.search).get('s');
+            const guardada = lsGet('senhaCliente');
+            const dia = lsGet('senhaDia');
+            if (q && /^\d{1,6}$/.test(q)) return iniciar(q);
+            if (guardada && dia === new Date().toDateString()) return iniciar(guardada);
+            lsDel('senhaCliente');
+            $('inputSenha').focus();
+        })();
+    </script>
+</body>
+</html>

@@ -1699,6 +1699,8 @@ module.exports = {
     batchUpdateProducts,
     getChangeSignatures,
     runStatements,
+    isPromoVigente,
+    hexToWin1252,
     connectionInfo: connInfo
 };
 

@@ -10,6 +10,8 @@ import '../widgets/audit_history_view.dart';
 import '../models/promotion_item.dart';
 import '../widgets/promotions_view.dart';
 import '../widgets/batch_dialogs.dart';
+import '../widgets/dashboard_view.dart';
+import '../widgets/changes_view.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -467,16 +469,27 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Container(
               color: AppTheme.bgLight,
-              child: _currentNavIndex == 0
-                  ? _buildProductsArea(isMobile)
-                  : (_currentNavIndex == 1
-                      ? PromotionsView(onChanged: _onPromotionsChanged)
-                      : const AuditHistoryView()),
+              child: _buildCurrentPage(isMobile),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildCurrentPage(bool isMobile) {
+    switch (_currentNavIndex) {
+      case 0:
+        return _buildProductsArea(isMobile);
+      case 1:
+        return PromotionsView(onChanged: _onPromotionsChanged);
+      case 2:
+        return const DashboardView();
+      case 3:
+        return const ChangesView();
+      default:
+        return const AuditHistoryView();
+    }
   }
 
   // --- Light Clean Sidebar Component with DUSUCO Orange Identity ---
@@ -572,9 +585,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 4),
                 _buildSidebarNavItem(
+                  title: 'Dashboard',
+                  icon: Icons.insights,
+                  index: 2,
+                  isDrawer: isDrawer,
+                ),
+                const SizedBox(height: 4),
+                _buildSidebarNavItem(
+                  title: 'Mudanças do dia',
+                  icon: Icons.fact_check_outlined,
+                  index: 3,
+                  isDrawer: isDrawer,
+                ),
+                const SizedBox(height: 4),
+                _buildSidebarNavItem(
                   title: 'Auditoria ERP',
                   icon: Icons.manage_history,
-                  index: 2,
+                  index: 4,
                   isDrawer: isDrawer,
                 ),
               ],

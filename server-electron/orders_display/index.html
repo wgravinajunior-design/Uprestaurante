@@ -1153,6 +1153,10 @@
             <p style="font-size:13px; font-weight:bold;" id="printComanda">COMANDA: --</p>
             <p style="font-size:12px;" id="printCliente"></p>
             <p style="margin:6px 0;">--------------------------------</p>
+            <div id="printQrBox" style="display:none; margin-top:8px;">
+                <img id="printQr" alt="QR Code" style="width:130px; height:130px;">
+                <p style="font-size:10px; margin:2px 0 0;">Aponte a câmera do celular<br>e acompanhe seu pedido</p>
+            </div>
             <p style="font-size:11px; margin-top:8px;">Aguarde ser chamado pelo painel.<br>Obrigado pela preferência!</p>
             <p style="margin-top:14px; font-size:10px;">================================</p>
         </div>
@@ -1584,7 +1588,27 @@
             printTicketData(order.senha, order.comanda, order.clienteNome);
         }
 
-        function printTicketData(senha, comanda, cliente) {
+        // Endereco publico (porta 8083) para o QR do cupom; vazio = sem QR
+        let publicBase = '';
+        fetch(`${API_HOST}/api/public-info`).then((r) => r.json()).then((j) => {
+            if (j && j.data) publicBase = j.data.baseSugerida || '';
+        }).catch(() => {});
+
+        async function carregarQrCupom(senha) {
+            const box = document.getElementById('printQrBox');
+            const img = document.getElementById('printQr');
+            if (!publicBase || !/^\d+$/.test(String(senha))) { box.style.display = 'none'; return; }
+            const alvo = `${publicBase}/senha?s=${parseInt(senha, 10)}`;
+            await new Promise((resolve) => {
+                const t = setTimeout(resolve, 1500); // nao trava a impressao se o QR demorar
+                img.onload = img.onerror = () => { clearTimeout(t); resolve(); };
+                img.src = `${API_HOST}/api/qr?data=${encodeURIComponent(alvo)}`;
+            });
+            box.style.display = img.complete && img.naturalWidth > 0 ? 'block' : 'none';
+        }
+
+        async function printTicketData(senha, comanda, cliente) {
+            await carregarQrCupom(senha);
             document.getElementById('printSenha').innerText = senha;
             document.getElementById('printComanda').innerText = comanda ? `COMANDA: ${comanda}` : '';
             document.getElementById('printCliente').innerText = cliente ? `CLIENTE: ${cliente}` : '';

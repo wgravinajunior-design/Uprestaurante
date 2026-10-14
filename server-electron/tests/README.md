@@ -19,4 +19,5 @@ descartável**; `_guard.js` recusa o banco de produção.
 
 - `escrita.test.js`: preço, promoção, estoque (com concorrência), acentos, auditoria, tickets, pedidos, imagem, validações.
 - `http.test.js`: /api/promotions, /api/products/batch, miniaturas, BLOB e eventos em tempo real (SSE).
+- `novidades.test.js`: dashboard (período, comparativo, picos, mais vendidos), "o que mudou hoje", KDS por estação (roteamento, conclusão, PRONTO automático), área pública (cardápio, senha, isolamento da porta 8083, SSE) e QR Code.
 - `agenda.test.js`: agendamento de promoções (conflitos, fila, aplicação no dia), lote com início futuro, configurações da TV/painel, banners, `/api/health` e upload de foto (reduzida a 1600 px). Usa `CONFIG_DIR`/`CACHE_DIR` temporários.

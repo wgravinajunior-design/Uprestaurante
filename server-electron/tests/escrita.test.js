@@ -28,7 +28,7 @@ const step = async (nome, fn) => {
   ok('preco venda 12.5 / min 6', p1 && p1.precoVenda === 12.5 && p1.precoMinimo === 6);
 
   // 2. promocao
-  const hoje = new Date().toISOString().slice(0, 10);
+  const _d = new Date(); const hoje = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
   const p2 = await step('updateProductPromotion', () => db.updateProductPromotion(900001, { ativo: true, valorPromocional: 9.9, dtInicio: hoje, dtFim: null, tipoValor: 'V' }));
   ok('promocao vigente', p2 && p2.emPromocao === true && p2.precoPromocao === 9.9 && p2.descontoPercentual === 21, JSON.stringify(p2 && [p2.emPromocao, p2.descontoPercentual]));
   const p2b = await step('promocao off', () => db.updateProductPromotion(900001, { ativo: false }));

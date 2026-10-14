@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDS — Cozinha</title>
+    <style>
+        :root {
+            --bg: #0B1120; --panel: #111A2E; --card: #1A2540; --border: #2B3A5C; --text: #F1F5F9; --muted: #94A3B8;
+            --ok: #22C55E; --warn: #F59E0B; --late: #EF4444; --accent: #38BDF8;
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { display: flex; flex-direction: column; }
+        .offline { display: none; background: #B91C1C; text-align: center; padding: 7px; font-weight: 800; font-size: 14px; }
+        .offline.show { display: block; }
+        header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+        header h1 { font-size: 18px; margin: 0; }
+        .abas { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+        .aba { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 8px 14px; font-weight: 800; font-size: 14px; cursor: pointer; }
+        .aba.ativa { background: var(--accent); color: #04263A; border-color: var(--accent); }
+        .aba .n { margin-left: 6px; background: rgba(0,0,0,.25); border-radius: 99px; padding: 1px 8px; font-size: 12px; }
+        .ferr { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 13px; }
+        .ferr button { background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+        #relogio { font-weight: 800; font-size: 18px; color: var(--text); }
+
+        .corpo { flex: 1; display: grid; grid-template-columns: 300px 1fr; min-height: 0; }
+        aside { background: var(--panel); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px; }
+        aside h2 { font-size: 13px; letter-spacing: 1.5px; color: var(--muted); margin: 0 0 10px; }
+        .grupo { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+        .grupo .q { font-size: 26px; font-weight: 900; color: var(--accent); min-width: 44px; text-align: center; }
+        .grupo .d { font-weight: 700; font-size: 14px; line-height: 1.2; }
+        .grupo .s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+        .grupo.atraso { border-color: var(--late); }
+        main { overflow-y: auto; padding: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; align-content: start; }
+        .vazio { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 80px 10px; font-size: 18px; }
+
+        .ticket { background: var(--card); border: 2px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+        .ticket.amarelo { border-color: var(--warn); }
+        .ticket.vermelho { border-color: var(--late); animation: pulso 1.4s ease-in-out infinite; }
+        .ticket.novo { animation: entrada .6s ease-out; }
+        @keyframes pulso { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.45); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+        @keyframes entrada { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .cab { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(255,255,255,.04); }
+        .cab .senha { font-size: 38px; font-weight: 900; line-height: 1; }
+        .cab .meta { text-align: right; font-size: 12.5px; color: var(--muted); }
+        .cab .tempo { font-size: 20px; font-weight: 900; color: var(--ok); }
+        .ticket.amarelo .tempo { color: var(--warn); }
+        .ticket.vermelho .tempo { color: var(--late); }
+        ul { list-style: none; margin: 0; padding: 8px 14px; flex: 1; }
+        li { display: flex; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 16px; }
+        li:last-child { border-bottom: 0; }
+        li .qtd { font-weight: 900; color: var(--accent); min-width: 38px; }
+        li .desc { flex: 1; font-weight: 700; line-height: 1.2; }
+        li .obs { display: block; font-size: 12.5px; color: var(--warn); font-weight: 600; margin-top: 2px; }
+        li .est { font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; }
+        li .min { font-size: 12px; color: var(--muted); white-space: nowrap; }
+        li .min.atraso { color: var(--late); font-weight: 800; }
+        .rodape { padding: 10px 14px 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .rodape button { flex: 1; min-width: 120px; background: var(--ok); color: #052E16; border: 0; border-radius: 12px; padding: 13px; font-size: 16px; font-weight: 900; cursor: pointer; }
+        .rodape button:disabled { opacity: .55; cursor: wait; }
+        .chip { font-size: 12px; font-weight: 800; padding: 4px 9px; border-radius: 99px; background: rgba(34,197,94,.18); color: var(--ok); }
+        .chip.falta { background: rgba(245,158,11,.18); color: var(--warn); }
+
+        @media (max-width: 800px) { .corpo { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--border); max-height: 28vh; } }
+    </style>
+</head>
+<body>
+    <div class="offline" id="offline">⚠ Sem conexão com o servidor — tentando reconectar…</div>
+    <header>
+        <h1>👨‍🍳 KDS</h1>
+        <div class="abas" id="abas"></div>
+        <div class="ferr">
+            <button id="btnSom" title="Aviso sonoro de novo pedido">🔔</button>
+            <span id="relogio">--:--</span>
+        </div>
+    </header>
+    <div class="corpo">
+        <aside>
+            <h2>PREPARAR AGORA</h2>
+            <div id="agrupado"></div>
+        </aside>
+        <main id="tickets"></main>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+        const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+        // token opcional (servidor com API_TOKEN): abrir uma vez com ?token=...
+        let TOKEN = '';
+        try {
+            const q = new URLSearchParams(location.search).get('token');
+            if (q) localStorage.setItem('apiToken', q);
+            TOKEN = localStorage.getItem('apiToken') || '';
+        } catch (e) {}
+        const api = (p, o = {}) => fetch(p, { ...o, headers: { ...(o.headers || {}), ...(TOKEN ? { 'x-api-token': TOKEN } : {}) } });
+
+        const qs = new URLSearchParams(location.search);
+        let estacao = qs.get('estacao') || lsGet('kdsEstacao') || '';
+        let estacoes = [];
+        let dados = null;
+        let limiteMin = 10;
+        let somAtivo = lsGet('kdsSom') !== '0';
+        const vistos = new Set();
+        let primeira = true;
+        let ocupado = false;
+
+        // ---- relogio ----
+        setInterval(() => {
+            const d = new Date();
+            $('relogio').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        }, 1000);
+
+        // ---- som ----
+        function beep() {
+            if (!somAtivo) return;
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AC();
+                [0, 0.18].forEach((t) => {
+                    const o = ctx.createOscillator(); const g = ctx.createGain();
+                    o.type = 'triangle'; o.frequency.value = 740;
+                    g.gain.setValueAtTime(0.25, ctx.currentTime + t);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.25);
+                    o.connect(g); g.connect(ctx.destination);
+                    o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.25);
+                });
+            } catch (e) {}
+        }
+        function pintarSom() { $('btnSom').textContent = somAtivo ? '🔔' : '🔕'; }
+        $('btnSom').addEventListener('click', () => { somAtivo = !somAtivo; lsSet('kdsSom', somAtivo ? '1' : '0'); pintarSom(); beep(); });
+        pintarSom();
+
+        function offline(v) { $('offline').classList.toggle('show', v); }
+
+        // ---- dados ----
+        async function carregar() {
+            if (ocupado) return;
+            ocupado = true;
+            try {
+                const url = '/api/kds/orders' + (estacao ? '?estacao=' + encodeURIComponent(estacao) : '');
+                const r = await api(url);
+                const j = await r.json();
+                if (!j.success) throw new Error(j.error || 'erro');
+                dados = j.data;
+                estacoes = dados.estacoes;
+                offline(false);
+
+                // novos pedidos (nao toca na primeira carga)
+                let novo = false;
+                dados.pedidos.forEach((p) => { if (!vistos.has(p.id)) { vistos.add(p.id); if (!primeira) novo = true; p._novo = !primeira; } });
+                primeira = false;
+                if (novo) beep();
+                desenhar();
+            } catch (e) {
+                offline(true);
+            } finally {
+                ocupado = false;
+            }
+        }
+
+        function classeTempo(min) {
+            if (min >= limiteMin) return 'vermelho';
+            if (min >= Math.max(1, Math.round(limiteMin * 0.5))) return 'amarelo';
+            return '';
+        }
+        const nomeEstacao = (id) => (estacoes.find((e) => e.id === id) || { nome: id }).nome;
+
+        function desenharAbas() {
+            const total = dados ? dados.pedidos.length : 0;
+            const abas = [{ id: '', nome: 'Todas' }, ...estacoes];
+            $('abas').innerHTML = abas.map((a) =>
+                `<button class="aba ${a.id === estacao ? 'ativa' : ''}" data-id="${esc(a.id)}">${esc(a.nome)}${a.id === estacao ? `<span class="n">${total}</span>` : ''}</button>`).join('');
+            $('abas').querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => {
+                estacao = b.dataset.id;
+                lsSet('kdsEstacao', estacao);
+                vistos.clear(); primeira = true;
+                carregar();
+            }));
+        }
+
+        function desenhar() {
+            if (!dados) return;
+            desenharAbas();
+
+            // agrupado
+            $('agrupado').innerHTML = dados.agrupado.length
+                ? dados.agrupado.map((g) => `<div class="grupo ${g.maisAntigoMin >= limiteMin ? 'atraso' : ''}">
+                        <div class="q">${esc(g.quantidade)}×</div>
+                        <div><div class="d">${esc(g.descricao)}</div><div class="s">Senhas ${g.pedidos.map(esc).join(', ')} • mais antigo ${g.maisAntigoMin} min</div></div>
+                    </div>`).join('')
+                : '<div class="vazio" style="padding:30px 0;font-size:14px">Nada para preparar</div>';
+
+            // tickets
+            if (dados.pedidos.length === 0) {
+                $('tickets').innerHTML = '<div class="vazio">✅ Nenhum pedido pendente' + (estacao ? ' nesta estação' : '') + '</div>';
+                return;
+            }
+            $('tickets').innerHTML = dados.pedidos.map((p) => {
+                const classe = classeTempo(p.minutos);
+                const meta = [p.comanda ? 'Cmd ' + p.comanda : '', p.mesa ? 'Mesa ' + p.mesa : '', p.cliente || ''].filter(Boolean).map(esc).join(' • ');
+                const itens = p.itens.map((i) => `<li>
+                        <span class="qtd">${esc(i.quantidade)}×</span>
+                        <span class="desc">${esc(i.descricao)}${i.observacao ? `<span class="obs">⚠ ${esc(i.observacao)}</span>` : ''}</span>
+                        ${estacao ? '' : `<span class="est">${esc(nomeEstacao(i.estacao))}</span>`}
+                        <span class="min ${i.minutos >= limiteMin ? 'atraso' : ''}">${i.minutos} min</span>
+                    </li>`).join('');
+                const chips = p.estacoesEnvolvidas.length > 1
+                    ? p.estacoesEnvolvidas.map((e) => `<span class="chip ${p.estacoesConcluidas.includes(e) ? '' : 'falta'}">${p.estacoesConcluidas.includes(e) ? '✓' : '…'} ${esc(nomeEstacao(e))}</span>`).join('')
+                    : '';
+                const botoes = estacao
+                    ? `<button data-id="${p.id}" data-est="${esc(estacao)}">✔ Concluir ${esc(nomeEstacao(estacao))}</button>`
+                    : p.estacoesEnvolvidas.filter((e) => !p.estacoesConcluidas.includes(e))
+                        .map((e) => `<button data-id="${p.id}" data-est="${esc(e)}">✔ ${esc(nomeEstacao(e))}</button>`).join('');
+                return `<article class="ticket ${classe} ${p._novo ? 'novo' : ''}">
+                    <div class="cab"><div class="senha">${esc(p.senha)}</div>
+                        <div class="meta"><div class="tempo">${p.minutos} min</div>${meta}</div></div>
+                    <ul>${itens}</ul>
+                    <div class="rodape">${chips}${botoes}</div>
+                </article>`;
+            }).join('');
+
+            $('tickets').querySelectorAll('.rodape button').forEach((b) => b.addEventListener('click', () => concluir(b)));
+            dados.pedidos.forEach((p) => { p._novo = false; });
+        }
+
+        async function concluir(btn) {
+            btn.disabled = true;
+            try {
+                const r = await api(`/api/kds/orders/${btn.dataset.id}/done`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estacao: btn.dataset.est })
+                });
+                const j = await r.json();
+                if (!j.success) throw new Error(j.error || 'Falha ao concluir');
+                carregar();
+            } catch (e) {
+                btn.disabled = false;
+                alert('Não foi possível concluir: ' + e.message);
+            }
+        }
+
+        // ---- limite de alerta (mesmo do painel de pedidos) ----
+        fetch('/api/company').then((r) => r.json()).then((j) => {
+            if (j.data && j.data.alertaPreparoMin) limiteMin = j.data.alertaPreparoMin;
+        }).catch(() => {});
+
+        // ---- tempo real ----
+        if (window.EventSource) {
+            const es = new EventSource('/api/events');
+            let t = null;
+            es.addEventListener('orders', () => { clearTimeout(t); t = setTimeout(carregar, 250); });
+            es.addEventListener('hello', () => { offline(false); carregar(); });
+            es.onerror = () => offline(true);
+        }
+        setInterval(carregar, 15000);                       // rede de seguranca
+        setInterval(() => { if (dados) desenhar(); }, 30000); // os minutos "andam"
+        carregar();
+    </script>
+</body>
+</html>

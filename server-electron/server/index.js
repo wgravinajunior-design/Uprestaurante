@@ -5,11 +5,16 @@ const path = require('path');
 const fs = require('fs');
 const db = require('./db');
 const agenda = require('./agenda');
+const reports = require('./reports');
+const kds = require('./kds');
+const publicMod = require('./public');
+const QRCode = require('qrcode');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const PORT_TV = process.env.PORT_TV || 8081;
 const PORT_ORDERS = process.env.PORT_ORDERS || 8082;
+const PORT_PUBLIC = process.env.PORT_PUBLIC || 8083;
 
 // Dedicated TV Signage Express App (Port 8081)
 // CORS: aceita apenas origens do mesmo host (portas 8080/8081/8082) ou requisicoes sem Origin
@@ -54,8 +59,8 @@ app.use('/api', (req, res, next) => {
         const alvo = req.path;
         res.on('finish', () => {
             if (res.statusCode >= 400) return;
-            if (alvo.startsWith('/orders')) sseBroadcast('orders');
-            else if (alvo.startsWith('/products') || alvo.startsWith('/company') || alvo.startsWith('/promotions') || alvo.startsWith('/tv')) sseBroadcast('products');
+            if (alvo.startsWith('/orders') || alvo.startsWith('/kds')) sseBroadcast('orders');
+            else if (alvo.startsWith('/products') || alvo.startsWith('/company') || alvo.startsWith('/promotions') || alvo.startsWith('/tv') || alvo.startsWith('/cardapio')) sseBroadcast('products');
         });
     }
     next();
@@ -123,7 +128,8 @@ const OPERACIONAL_PADRAO = {
     tvGradeItens: 6,
     tvBannerACada: 3,         // na ROTACAO: um banner a cada N produtos
     vozAtiva: true,
-    vozRepeticoes: 2
+    vozRepeticoes: 2,
+    publicUrl: ''             // endereco publico (https/dominio/tunel) usado nos QR Codes; vazio = IP da rede local
 };
 
 function getThemeConfig() {
@@ -222,6 +228,13 @@ const handleSaveTheme = async (req, res) => {
                 return res.status(400).json({ success: false, error: 'tvLayout inválido' });
             }
             patch.tvLayout = body.tvLayout;
+        }
+        if (body.publicUrl !== undefined) {
+            const u = String(body.publicUrl).trim();
+            if (u !== '' && !/^https?:\/\/[^\s<>"']{3,180}$/.test(u)) {
+                return res.status(400).json({ success: false, error: 'publicUrl deve começar com http:// ou https://' });
+            }
+            patch.publicUrl = u.replace(/\/+$/, '');
         }
         for (const k of ['vozAtiva']) {
             if (body[k] !== undefined) patch[k] = body[k] === true || body[k] === 'true';
@@ -802,7 +815,7 @@ function sseBroadcast(evt) {
     }
 }
 
-app.get('/api/events', (req, res) => {
+function attachSse(req, res) {
     res.set({
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
@@ -815,7 +828,8 @@ app.get('/api/events', (req, res) => {
     sseClients.add(res);
     const beat = setInterval(() => { try { res.write(': ping\n\n'); } catch (e) {} }, 20000);
     res.on('close', () => { clearInterval(beat); sseClients.delete(res); });
-});
+}
+app.get('/api/events', attachSse);
 
 // Vigia o banco (mudancas feitas pelo ERP/PDV) enquanto houver paineis conectados
 let lastSignatures = null;
@@ -837,6 +851,107 @@ function startChangeWatcher() {
     if (watcherTimer.unref) watcherTimer.unref();
 }
 
+// --- Dashboard gerencial e "o que mudou hoje" ---
+app.get('/api/dashboard', async (req, res) => {
+    try {
+        const data = await reports.dashboard({
+            inicio: req.query.inicio, fim: req.query.fim, comparar: String(req.query.comparar || 'ANTERIOR').toUpperCase()
+        });
+        res.json({ success: true, data });
+    } catch (err) {
+        logEvent('ERROR', 'Erro no dashboard: ' + err.message);
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/changes', async (req, res) => {
+    try {
+        res.json({ success: true, data: await reports.mudancas({ data: req.query.data }) });
+    } catch (err) {
+        logEvent('ERROR', 'Erro em mudanças do dia: ' + err.message);
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+// --- KDS (cozinha por estação) ---
+app.get('/api/kds/config', async (req, res) => {
+    try {
+        const [config, opcoes] = await Promise.all([kds.getConfig(), kds.opcoes()]);
+        res.json({ success: true, data: { config, opcoes } });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.put('/api/kds/config', async (req, res) => {
+    try {
+        const config = await kds.salvarConfig(req.body);
+        logEvent('AUDIT', `Estações do KDS atualizadas (${config.estacoes.length})`);
+        res.json({ success: true, data: config });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/kds/orders', async (req, res) => {
+    try {
+        const estacao = typeof req.query.estacao === 'string' && req.query.estacao ? req.query.estacao : null;
+        res.json({ success: true, data: await kds.pedidosDaEstacao(estacao) });
+    } catch (err) {
+        logEvent('ERROR', 'Erro no KDS: ' + err.message);
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.post('/api/kds/orders/:id/done', async (req, res) => {
+    try {
+        const { estacao, desfazer } = req.body || {};
+        const r = await kds.concluir(req.params.id, String(estacao || ''), { desfazer: desfazer === true });
+        logEvent('AUDIT', `KDS: pedido ${r.pedido} ${desfazer ? 'reaberto' : 'concluído'} na estação ${r.estacao}${r.pedidoPronto ? ' (pedido PRONTO)' : ''}`);
+        res.json({ success: true, data: r });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+// --- QR Code / endereço público / cardápio digital ---
+app.get('/api/public-info', (req, res) => {
+    const theme = getThemeConfig();
+    const ips = publicMod.enderecosLocais();
+    const bases = ips.map((i) => ({ interface: i.interface, ip: i.ip, base: `http://${i.ip}:${PORT_PUBLIC}` }));
+    const sugerida = theme.publicUrl || (bases[0] ? bases[0].base : `http://localhost:${PORT_PUBLIC}`);
+    res.json({ success: true, data: { porta: Number(PORT_PUBLIC), publicUrl: theme.publicUrl || '', enderecos: bases, baseSugerida: sugerida } });
+});
+
+app.get('/api/qr', async (req, res) => {
+    try {
+        const data = String(req.query.data || '');
+        if (!/^https?:\/\/[^\s]{3,500}$/.test(data)) {
+            return res.status(400).json({ success: false, error: 'Informe uma URL http(s) em "data"' });
+        }
+        const svg = await QRCode.toString(data, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+        res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.send(svg);
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+app.get('/api/cardapio/config', (req, res) => {
+    res.json({ success: true, data: publicMod.getCardapioConfig() });
+});
+
+app.put('/api/cardapio/config', (req, res) => {
+    try {
+        const cfg = publicMod.saveCardapioConfig(req.body || {});
+        logEvent('AUDIT', `Cardápio digital atualizado (${cfg.ocultos.length} produto(s) ocultos)`);
+        res.json({ success: true, data: cfg });
+    } catch (err) {
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
 // Erros de parsing/upload viram JSON (o handler padrao devolve HTML com stack trace)
 app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
@@ -857,6 +972,13 @@ if (fs.existsSync(tvDisplayPath)) {
     tvApp.get('*', (req, res) => {
         res.sendFile(path.join(tvDisplayPath, 'index.html'));
     });
+}
+
+// --- KDS (cozinha) ---
+const kdsDisplayPath = path.join(__dirname, '..', 'kds_display');
+if (fs.existsSync(kdsDisplayPath)) {
+    app.use('/kds', express.static(kdsDisplayPath));
+    ordersApp.use('/kds', express.static(kdsDisplayPath));
 }
 
 // --- Orders & Password Panel Hosting (Port 8082 & /pedidos mirror on Port 8080) ---
@@ -885,6 +1007,14 @@ if (fs.existsSync(flutterWebPath)) {
     });
 }
 
+// App publico (clientes): porta separada, somente leitura
+const publicApp = publicMod.createPublicApp({
+    mainApp: app,
+    getTheme: getThemeConfig,
+    attachSse,
+    pagesDir: path.join(__dirname, '..', 'public_display')
+});
+
 let agendaTimer = null;
 function startAgenda() {
     if (agendaTimer) return;
@@ -912,6 +1042,18 @@ function startServer(port = PORT, tvPort = PORT_TV, ordersPort = PORT_ORDERS) {
 
             let tvServer = null;
             let ordersServer = null;
+            let publicServer = null;
+
+            try {
+                publicServer = publicApp.listen(PORT_PUBLIC, () => {
+                    logEvent('SYSTEM', `Área pública (senha e cardápio) ativa na porta ${PORT_PUBLIC}`);
+                });
+                publicServer.on('error', (err) => {
+                    logEvent('ERROR', `Aviso ao abrir porta pública ${PORT_PUBLIC}: ` + err.message);
+                });
+            } catch (err) {
+                logEvent('ERROR', 'Erro ao iniciar porta pública: ' + err.message);
+            }
 
             try {
                 tvServer = tvApp.listen(tvPort, () => {
@@ -927,15 +1069,15 @@ function startServer(port = PORT, tvPort = PORT_TV, ordersPort = PORT_ORDERS) {
             try {
                 ordersServer = ordersApp.listen(ordersPort, () => {
                     logEvent('SYSTEM', `Servidor Painel de Pedidos & Senhas ativo na porta ${ordersPort} (http://localhost:${ordersPort})`);
-                    resolve({ app, server, port, tvApp, tvServer, tvPort, ordersApp, ordersServer, ordersPort });
+                    resolve({ publicServer, app, server, port, tvApp, tvServer, tvPort, ordersApp, ordersServer, ordersPort });
                 });
                 ordersServer.on('error', (err) => {
                     logEvent('ERROR', `Aviso ao abrir porta Pedidos ${ordersPort}: ` + err.message);
-                    resolve({ app, server, port, tvApp, tvServer, tvPort, ordersApp, ordersServer: null, ordersPort });
+                    resolve({ publicServer, app, server, port, tvApp, tvServer, tvPort, ordersApp, ordersServer: null, ordersPort });
                 });
             } catch (err) {
                 logEvent('ERROR', `Erro ao iniciar porta Pedidos: ` + err.message);
-                resolve({ app, server, port, tvApp, tvServer, tvPort, ordersApp, ordersServer: null, ordersPort });
+                resolve({ publicServer, app, server, port, tvApp, tvServer, tvPort, ordersApp, ordersServer: null, ordersPort });
             }
         });
         server.on('error', (err) => {
@@ -949,4 +1091,4 @@ if (require.main === module) {
     startServer().catch(() => process.exit(1));
 }
 
-module.exports = { app, tvApp, ordersApp, startServer, logEvent, recentLogs, sseBroadcast };
+module.exports = { app, tvApp, ordersApp, publicApp, startServer, logEvent, recentLogs, sseBroadcast };

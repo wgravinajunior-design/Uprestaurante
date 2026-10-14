@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#EA580C">
+    <title>Cardápio</title>
+    <style>
+        :root {
+            --primary: #EA580C; --bg: #F8FAFC; --card: #FFFFFF; --text: #0F172A; --muted: #64748B;
+            --border: #E2E8F0; --promo: #DC2626; --promo-bg: #FEF2F2;
+        }
+        body.dark { --bg: #0B1120; --card: #1E293B; --text: #F8FAFC; --muted: #94A3B8; --border: #334155; --promo-bg: rgba(220,38,38,.15); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { scroll-behavior: smooth; scroll-padding-top: 118px; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        header.topo { background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 16px 10px; }
+        .marca { display: flex; align-items: center; gap: 12px; max-width: 1100px; margin: 0 auto; }
+        .marca img { height: 42px; max-width: 130px; object-fit: contain; }
+        .marca .nome { font-size: 20px; font-weight: 900; }
+        .marca .sub { font-size: 12.5px; color: var(--muted); }
+        .busca { max-width: 1100px; margin: 10px auto 0; }
+        .busca input { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 15px; }
+        .busca input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+        nav.cats { position: sticky; top: 0; z-index: 10; background: var(--card); border-bottom: 1px solid var(--border); overflow-x: auto; white-space: nowrap; padding: 8px 12px; scrollbar-width: none; }
+        nav.cats::-webkit-scrollbar { display: none; }
+        nav.cats a { display: inline-block; margin-right: 6px; padding: 7px 14px; border-radius: 999px; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 13.5px; font-weight: 700; text-decoration: none; }
+        nav.cats a.promo { background: var(--promo-bg); color: var(--promo); border-color: transparent; }
+        nav.cats a.ativa { background: var(--primary); border-color: var(--primary); color: #fff; }
+        main { max-width: 1100px; margin: 0 auto; padding: 8px 14px 60px; }
+        section { margin-top: 22px; }
+        section h2 { font-size: 19px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+        section h2 small { color: var(--muted); font-weight: 600; font-size: 13px; }
+        .grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 12px; }
+        .item { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+        .item.promo { border-color: #FCA5A5; }
+        .foto { position: relative; aspect-ratio: 4 / 3; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+        .foto img { width: 100%; height: 100%; object-fit: contain; }
+        .foto .sem { color: var(--muted); font-size: 12px; }
+        .selo { position: absolute; top: 8px; left: 8px; background: var(--promo); color: #fff; font-weight: 900; font-size: 12px; padding: 3px 8px; border-radius: 8px; }
+        .corpo { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .nome-item { font-weight: 800; font-size: 14px; line-height: 1.25; text-transform: uppercase; }
+        .desc { font-size: 12px; color: var(--muted); line-height: 1.35; }
+        .precos { margin-top: auto; padding-top: 6px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+        .preco { font-size: 18px; font-weight: 900; }
+        .de { font-size: 12px; color: var(--muted); text-decoration: line-through; }
+        .por { font-size: 19px; font-weight: 900; color: var(--promo); }
+        .ate { font-size: 11px; color: var(--muted); width: 100%; }
+        .vazio { text-align: center; color: var(--muted); padding: 50px 10px; }
+        footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px; }
+        .offline { display: none; background: #B91C1C; color: #fff; text-align: center; padding: 7px; font-size: 13px; font-weight: 700; }
+        .offline.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="offline" id="offline">Sem conexão — mostrando a última versão do cardápio</div>
+    <header class="topo">
+        <div class="marca">
+            <img id="logo" alt="" onerror="this.style.display='none'">
+            <div><div class="nome" id="nomeLoja">Cardápio</div><div class="sub" id="subLoja"></div></div>
+        </div>
+        <div class="busca"><input id="busca" type="search" placeholder="Buscar no cardápio…" autocomplete="off"></div>
+    </header>
+    <nav class="cats" id="cats"></nav>
+    <main id="conteudo"><div class="vazio">Carregando cardápio…</div></main>
+    <footer>Preços e promoções sujeitos a alteração sem aviso. Imagens meramente ilustrativas.</footer>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const dinheiro = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+        let dados = null;
+
+        fetch('/api/public/info').then((r) => r.json()).then((j) => {
+            const d = j.data || {};
+            $('nomeLoja').textContent = d.nome || 'Cardápio';
+            $('subLoja').textContent = d.subtitulo || '';
+            document.title = (d.nome || 'Cardápio') + ' — Cardápio';
+            if (d.corPrimaria) { document.documentElement.style.setProperty('--primary', d.corPrimaria); document.querySelector('meta[name=theme-color]').content = d.corPrimaria; }
+            if (d.modoTema === 'dark') document.body.classList.add('dark');
+            $('logo').src = d.logoUrl + '?t=' + Date.now();
+        }).catch(() => {});
+
+        function cartao(i, destaque) {
+            const foto = i.foto
+                ? `<img loading="lazy" src="${esc(i.foto)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'sem',textContent:'Sem foto'}))">`
+                : '<span class="sem">Sem foto</span>';
+            const promo = i.precoPromocao !== null;
+            const precos = promo
+                ? `<span class="de">${dinheiro(i.preco)}</span><span class="por">${dinheiro(i.precoPromocao)}</span>${i.promoAte ? `<span class="ate">Válido até ${i.promoAte.split('-').reverse().slice(0, 2).join('/')}</span>` : ''}`
+                : `<span class="preco">${dinheiro(i.preco)}</span>`;
+            return `<article class="item${promo ? ' promo' : ''}">
+                <div class="foto">${foto}${promo ? `<span class="selo">-${i.descontoPercentual}%</span>` : ''}</div>
+                <div class="corpo">
+                    <div class="nome-item">${esc(i.nome)}</div>
+                    ${i.descricao ? `<div class="desc">${esc(i.descricao)}</div>` : ''}
+                    <div class="precos">${precos}</div>
+                </div></article>`;
+        }
+
+        function desenhar() {
+            if (!dados) return;
+            const termo = semAcento($('busca').value.trim());
+            const filtra = (itens) => (termo ? itens.filter((i) => semAcento(i.nome + ' ' + i.descricao).includes(termo)) : itens);
+
+            const secoes = [];
+            const promos = filtra(dados.promocoes || []);
+            if (promos.length) secoes.push({ id: 'promo', nome: '🔥 Promoções do dia', itens: promos, promo: true });
+            (dados.secoes || []).forEach((s) => {
+                const itens = filtra(s.itens);
+                if (itens.length) secoes.push({ id: s.id, nome: s.nome, itens });
+            });
+
+            $('cats').innerHTML = secoes.map((s) => `<a href="#sec-${esc(s.id)}" class="${s.promo ? 'promo' : ''}">${esc(s.nome)}</a>`).join('');
+            $('conteudo').innerHTML = secoes.length
+                ? secoes.map((s) => `<section id="sec-${esc(s.id)}"><h2>${esc(s.nome)} <small>${s.itens.length}</small></h2><div class="grade">${s.itens.map((i) => cartao(i)).join('')}</div></section>`).join('')
+                : `<div class="vazio">${termo ? 'Nada encontrado para essa busca.' : 'Cardápio indisponível no momento.'}</div>`;
+        }
+
+        async function carregar() {
+            try {
+                const r = await fetch('/api/public/menu');
+                const j = await r.json();
+                if (j.success) { dados = j.data; desenhar(); $('offline').classList.remove('show'); }
+            } catch (e) {
+                $('offline').classList.add('show');
+            }
+        }
+
+        $('busca').addEventListener('input', desenhar);
+        carregar();
+        setInterval(carregar, 60000);
+        if (window.EventSource) {
+            const es = new EventSource('/api/public/events');
+            let t = null;
+            es.addEventListener('products', () => { clearTimeout(t); t = setTimeout(carregar, 800); });
+        }
+    </script>
+</body>
+</html>

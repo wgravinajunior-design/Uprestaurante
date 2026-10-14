@@ -37,6 +37,23 @@
         #aviso { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 10px 18px; border-radius: 10px; color: #fff; font-weight: 700; display: none; z-index: 10; }
         #aviso.ok { background: var(--ok); display: block; }
         #aviso.err { background: var(--err); display: block; }
+        .qrs { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
+        .qr-card { border: 1px solid var(--border); border-radius: 14px; padding: 14px; text-align: center; width: 240px; }
+        .qr-card strong { display: block; margin-bottom: 8px; }
+        .qr-card img { width: 100%; max-width: 200px; background: #fff; }
+        .qr-card code { display: block; margin-top: 6px; font-size: 11px; word-break: break-all; color: var(--muted); }
+        .lista-simples { margin-top: 8px; display: grid; gap: 6px; }
+        .lista-linha { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13.5px; }
+        .kds-estacao { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+        .kds-bloco { margin-top: 10px; }
+        .kds-titulo { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+        .kds-opcoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 4px 12px; max-height: 150px; overflow-y: auto; font-size: 13.5px; }
+        @media print {
+            body.imprimindo-qr header, body.imprimindo-qr section:not(#secQr), body.imprimindo-qr #secQr .desc,
+            body.imprimindo-qr #secQr .row, body.imprimindo-qr #secQr h2, body.imprimindo-qr main > div { display: none !important; }
+            body.imprimindo-qr #secQr { border: 0; }
+            body.imprimindo-qr .qr-card { width: 48%; page-break-inside: avoid; border: 2px solid #000; }
+        }
     </style>
 </head>
 <body>
@@ -91,6 +108,53 @@
             <div class="row">
                 <label class="campo">Alertar acima de (min)<input type="number" id="alertaPreparoMin" min="1" max="240"></label>
                 <label class="campo">Ignorar após (min)<input type="number" id="alertaIgnorarMin" min="10" max="1440"></label>
+            </div>
+        </section>
+
+        <section id="secQr">
+            <h2>QR Codes para o cliente</h2>
+            <p class="desc">Imprima e deixe no balcão. O cliente acompanha a senha no celular (e é avisado quando fica pronta) ou vê o cardápio digital. Usam a <b>porta 8083</b>, que só permite leitura; a API administrativa (8080) continua fechada para visitantes.</p>
+            <div class="row">
+                <label class="campo">Endereço desta máquina na rede
+                    <select id="selBase"></select>
+                </label>
+                <label class="campo">Ou endereço público (domínio/túnel)
+                    <input type="text" id="publicUrl" placeholder="https://loja.exemplo.com.br" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:260px">
+                </label>
+                <button id="btnSalvarBase">Usar este endereço</button>
+            </div>
+            <div class="qrs" id="qrs"></div>
+            <div class="row" style="margin-top:10px"><button id="btnImprimirQr">🖨️ Imprimir QR Codes</button></div>
+        </section>
+
+        <section id="secCardapio">
+            <h2>Cardápio digital</h2>
+            <p class="desc">Gerado do mesmo cadastro de produtos (somente itens ativos, com preço). Promoções vigentes aparecem em destaque.</p>
+            <label class="check"><input type="checkbox" id="cdRespeitarTouch"> Mostrar só grupos marcados "exibir no touch" no ERP</label>
+            <label class="check"><input type="checkbox" id="cdIncluirSemGrupo"> Incluir produtos sem grupo (seção "Outros")</label>
+            <label class="check"><input type="checkbox" id="cdOcultarSemFoto"> Ocultar produtos sem foto</label>
+            <label class="check"><input type="checkbox" id="cdOcultarSemEstoque"> Ocultar produtos com estoque zerado ou negativo</label>
+            <label class="check"><input type="checkbox" id="cdMostrarDescricao"> Usar a observação do produto como descrição</label>
+            <h2 style="margin-top:14px;font-size:14px">Produtos ocultos</h2>
+            <div class="row">
+                <input type="text" id="cdBusca" placeholder="Buscar produto para ocultar…" style="padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:280px">
+            </div>
+            <div id="cdResultados" class="lista-simples"></div>
+            <div id="cdOcultos" class="lista-simples"></div>
+            <div class="row" style="margin-top:10px">
+                <button class="primario" id="btnSalvarCardapio">💾 Salvar cardápio</button>
+                <a href="#" id="linkCardapio" target="_blank" style="color:var(--primary);font-weight:700">Ver cardápio</a>
+            </div>
+        </section>
+
+        <section id="secKds">
+            <h2>Estações da cozinha (KDS)</h2>
+            <p class="desc">Cada item do pedido vai para uma estação: primeiro por produto, depois por grupo, depois pelo setor do ERP; o que não casar vai para a estação padrão. O pedido fica PRONTO quando todas as estações envolvidas concluírem.</p>
+            <div id="kdsLista"></div>
+            <div class="row" style="margin-top:10px">
+                <button id="btnAddEstacao">+ Adicionar estação</button>
+                <button class="primario" id="btnSalvarKds">💾 Salvar estações</button>
+                <a href="#" id="linkKds" target="_blank" style="color:var(--primary);font-weight:700">Abrir KDS</a>
             </div>
         </section>
 
@@ -212,6 +276,246 @@
             if (v) u.voice = v;
             speechSynthesis.speak(u);
         });
+
+        // =====================================================================
+        // QR Codes
+        // =====================================================================
+        let baseAtual = '';
+        function desenharQrs() {
+            const itens = [
+                ['Cardápio digital', baseAtual + '/cardapio'],
+                ['Acompanhe sua senha', baseAtual + '/senha']
+            ];
+            $('qrs').innerHTML = '';
+            itens.forEach(([titulo, url]) => {
+                const div = document.createElement('div');
+                div.className = 'qr-card';
+                const h = document.createElement('strong');
+                h.textContent = titulo;
+                const img = document.createElement('img');
+                img.src = API + '/api/qr?data=' + encodeURIComponent(url);
+                img.alt = 'QR Code ' + titulo;
+                const p = document.createElement('code');
+                p.textContent = url;
+                div.append(h, img, p);
+                $('qrs').appendChild(div);
+            });
+        }
+        async function carregarQr() {
+            const r = await api('/api/public-info');
+            const j = await r.json();
+            const d = j.data || {};
+            const sel = $('selBase');
+            sel.innerHTML = '';
+            (d.enderecos || []).forEach((e) => {
+                const o = document.createElement('option');
+                o.value = e.base;
+                o.textContent = `${e.ip} (${e.interface})`;
+                sel.appendChild(o);
+            });
+            if (!(d.enderecos || []).length) {
+                const o = document.createElement('option');
+                o.value = `http://localhost:${d.porta}`;
+                o.textContent = 'localhost (sem rede detectada)';
+                sel.appendChild(o);
+            }
+            $('publicUrl').value = d.publicUrl || '';
+            baseAtual = d.baseSugerida;
+            if (!d.publicUrl && sel.options.length) baseAtual = sel.value;
+            desenharQrs();
+        }
+        $('selBase').addEventListener('change', () => { if (!$('publicUrl').value.trim()) { baseAtual = $('selBase').value; desenharQrs(); } });
+        $('btnSalvarBase').addEventListener('click', async () => {
+            const u = $('publicUrl').value.trim();
+            const r = await api('/api/company/theme', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ publicUrl: u })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) return aviso(j.error || 'Endereço inválido', false);
+            baseAtual = u || $('selBase').value;
+            desenharQrs();
+            aviso('Endereço atualizado');
+        });
+        $('btnImprimirQr').addEventListener('click', () => {
+            document.body.classList.add('imprimindo-qr');
+            window.print();
+            setTimeout(() => document.body.classList.remove('imprimindo-qr'), 500);
+        });
+
+        // =====================================================================
+        // Cardapio digital
+        // =====================================================================
+        let cdOcultos = [];
+        const nomesProdutos = {};
+        function pintarOcultos() {
+            const box = $('cdOcultos');
+            box.innerHTML = cdOcultos.length ? '' : '<span style="color:#64748B;font-size:13px">Nenhum produto oculto manualmente.</span>';
+            cdOcultos.forEach((id) => {
+                const linha = document.createElement('div');
+                linha.className = 'lista-linha';
+                const t = document.createElement('span');
+                t.textContent = nomesProdutos[id] || ('Produto #' + id);
+                const b = document.createElement('button');
+                b.textContent = 'Mostrar';
+                b.addEventListener('click', () => { cdOcultos = cdOcultos.filter((x) => x !== id); pintarOcultos(); });
+                linha.append(t, b);
+                box.appendChild(linha);
+            });
+        }
+        async function carregarCardapio() {
+            const r = await api('/api/cardapio/config');
+            const c = (await r.json()).data || {};
+            $('cdRespeitarTouch').checked = !!c.respeitarTouch;
+            $('cdIncluirSemGrupo').checked = !!c.incluirSemGrupo;
+            $('cdOcultarSemFoto').checked = !!c.ocultarSemFoto;
+            $('cdOcultarSemEstoque').checked = !!c.ocultarSemEstoque;
+            $('cdMostrarDescricao').checked = !!c.mostrarDescricao;
+            cdOcultos = c.ocultos || [];
+            // nomes dos ja ocultos
+            await Promise.all(cdOcultos.slice(0, 60).map(async (id) => {
+                try {
+                    const rr = await api('/api/products/' + id);
+                    const jj = await rr.json();
+                    if (jj.data) nomesProdutos[id] = jj.data.descricao;
+                } catch (e) {}
+            }));
+            pintarOcultos();
+            $('linkCardapio').href = location.protocol + '//' + location.hostname + ':8083/cardapio';
+        }
+        let buscaTimer = null;
+        $('cdBusca').addEventListener('input', () => {
+            clearTimeout(buscaTimer);
+            const termo = $('cdBusca').value.trim();
+            if (termo.length < 2) { $('cdResultados').innerHTML = ''; return; }
+            buscaTimer = setTimeout(async () => {
+                const r = await api('/api/products?pageSize=8&search=' + encodeURIComponent(termo));
+                const j = await r.json();
+                const box = $('cdResultados');
+                box.innerHTML = '';
+                ((j.data || {}).items || []).forEach((p) => {
+                    nomesProdutos[p.id] = p.descricao;
+                    const linha = document.createElement('div');
+                    linha.className = 'lista-linha';
+                    const t = document.createElement('span');
+                    t.textContent = p.descricao;
+                    const b = document.createElement('button');
+                    b.textContent = cdOcultos.includes(p.id) ? 'Já oculto' : 'Ocultar';
+                    b.disabled = cdOcultos.includes(p.id);
+                    b.addEventListener('click', () => { cdOcultos.push(p.id); pintarOcultos(); b.textContent = 'Já oculto'; b.disabled = true; });
+                    linha.append(t, b);
+                    box.appendChild(linha);
+                });
+            }, 300);
+        });
+        $('btnSalvarCardapio').addEventListener('click', async () => {
+            const r = await api('/api/cardapio/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    respeitarTouch: $('cdRespeitarTouch').checked,
+                    incluirSemGrupo: $('cdIncluirSemGrupo').checked,
+                    ocultarSemFoto: $('cdOcultarSemFoto').checked,
+                    ocultarSemEstoque: $('cdOcultarSemEstoque').checked,
+                    mostrarDescricao: $('cdMostrarDescricao').checked,
+                    ocultos: cdOcultos
+                })
+            });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && j.success) aviso('Cardápio salvo');
+            else aviso(j.error || 'Não foi possível salvar', false);
+        });
+
+        // =====================================================================
+        // Estacoes do KDS
+        // =====================================================================
+        let kdsCfg = { estacoes: [] };
+        let kdsOpcoes = { setores: [], grupos: [] };
+        function pintarKds() {
+            const box = $('kdsLista');
+            box.innerHTML = '';
+            kdsCfg.estacoes.forEach((e, idx) => {
+                const card = document.createElement('div');
+                card.className = 'kds-estacao';
+
+                const topo = document.createElement('div');
+                topo.className = 'row';
+                const nome = document.createElement('input');
+                nome.type = 'text'; nome.value = e.nome; nome.maxLength = 30; nome.placeholder = 'Nome da estação';
+                nome.style.cssText = 'padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-weight:700';
+                nome.addEventListener('input', () => { e.nome = nome.value; });
+                const padrao = document.createElement('label');
+                padrao.className = 'check';
+                const rb = document.createElement('input');
+                rb.type = 'radio'; rb.name = 'kdsPadrao'; rb.checked = !!e.padrao;
+                rb.addEventListener('change', () => { kdsCfg.estacoes.forEach((x) => { x.padrao = false; }); e.padrao = true; });
+                padrao.append(rb, document.createTextNode(' Estação padrão'));
+                const rem = document.createElement('button');
+                rem.textContent = 'Remover';
+                rem.addEventListener('click', () => {
+                    if (kdsCfg.estacoes.length <= 1) return aviso('Mantenha ao menos uma estação', false);
+                    const eraPadrao = e.padrao;
+                    kdsCfg.estacoes.splice(idx, 1);
+                    if (eraPadrao) kdsCfg.estacoes[0].padrao = true;
+                    pintarKds();
+                });
+                topo.append(nome, padrao, rem);
+                card.appendChild(topo);
+
+                const lista = (titulo, itens, selecionados) => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'kds-bloco';
+                    const h = document.createElement('div');
+                    h.className = 'kds-titulo';
+                    h.textContent = titulo;
+                    wrap.appendChild(h);
+                    const grid = document.createElement('div');
+                    grid.className = 'kds-opcoes';
+                    itens.forEach((it) => {
+                        const l = document.createElement('label');
+                        const c = document.createElement('input');
+                        c.type = 'checkbox';
+                        c.checked = selecionados.includes(it.id);
+                        c.addEventListener('change', () => {
+                            const i = selecionados.indexOf(it.id);
+                            if (c.checked && i < 0) selecionados.push(it.id);
+                            if (!c.checked && i >= 0) selecionados.splice(i, 1);
+                        });
+                        l.append(c, document.createTextNode(' ' + it.nome));
+                        grid.appendChild(l);
+                    });
+                    if (!itens.length) grid.textContent = '—';
+                    wrap.appendChild(grid);
+                    return wrap;
+                };
+                card.appendChild(lista('Setores do ERP', kdsOpcoes.setores, e.setores));
+                card.appendChild(lista('Grupos de produtos', kdsOpcoes.grupos, e.grupos));
+                box.appendChild(card);
+            });
+        }
+        async function carregarKds() {
+            const r = await api('/api/kds/config');
+            const j = await r.json();
+            kdsCfg = j.data.config;
+            kdsOpcoes = j.data.opcoes;
+            pintarKds();
+            $('linkKds').href = location.protocol + '//' + location.hostname + ':8082/kds/';
+        }
+        $('btnAddEstacao').addEventListener('click', () => {
+            const n = kdsCfg.estacoes.length + 1;
+            kdsCfg.estacoes.push({ id: 'est' + Date.now().toString(36), nome: 'Nova estação ' + n, setores: [], grupos: [], produtos: [], padrao: false });
+            pintarKds();
+        });
+        $('btnSalvarKds').addEventListener('click', async () => {
+            const r = await api('/api/kds/config', {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(kdsCfg)
+            });
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && j.success) { kdsCfg = j.data; pintarKds(); aviso('Estações salvas'); }
+            else aviso(j.error || 'Não foi possível salvar', false);
+        });
+
+        Promise.all([carregarQr(), carregarCardapio(), carregarKds()]).catch(() => aviso('Alguns blocos não carregaram', false));
 
         carregar().catch(() => aviso('Não foi possível carregar as configurações', false));
     </script>

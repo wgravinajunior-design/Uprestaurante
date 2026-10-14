@@ -299,6 +299,33 @@ class ApiService {
     throw _error(response, 'Falha na edição em lote');
   }
 
+  /// Dashboard de vendas ([inicio]/[fim] = 'AAAA-MM-DD'). [comparar]: ANTERIOR | SEMANA | NENHUM.
+  static Future<Map<String, dynamic>> getDashboard({
+    required String inicio,
+    required String fim,
+    String comparar = 'ANTERIOR',
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/dashboard')
+        .replace(queryParameters: {'inicio': inicio, 'fim': fim, 'comparar': comparar});
+    final response = await _client.get(uri);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(utf8.decode(response.bodyBytes));
+      if (json['success'] == true) return (json['data'] as Map).cast<String, dynamic>();
+    }
+    throw _error(response, 'Falha ao carregar o dashboard');
+  }
+
+  /// Alterações do dia (preço, promoção, estoque, status...) de [data] = 'AAAA-MM-DD'.
+  static Future<Map<String, dynamic>> getChanges(String data) async {
+    final uri = Uri.parse('$baseUrl/api/changes').replace(queryParameters: {'data': data});
+    final response = await _client.get(uri);
+    if (response.statusCode == 200) {
+      final json = jsonDecode(utf8.decode(response.bodyBytes));
+      if (json['success'] == true) return (json['data'] as Map).cast<String, dynamic>();
+    }
+    throw _error(response, 'Falha ao carregar as alterações do dia');
+  }
+
   /// Verifica servidor + banco e atualiza [online] / [dbOk]. Usado pela tela de reconexão.
   static Future<bool> checkHealth() async {
     try {

@@ -6,6 +6,7 @@ let mainWindow;
 let serverInstance;
 let tvServerInstance;
 let ordersServerInstance;
+let publicServerInstance;
 
 async function createWindow() {
     // Start Express REST API & static file servers (Main: 8080, TV: 8081, Orders: 8082)
@@ -14,6 +15,7 @@ async function createWindow() {
         serverInstance = res.server;
         tvServerInstance = res.tvServer;
         ordersServerInstance = res.ordersServer;
+        publicServerInstance = res.publicServer;
     } catch (e) {
         console.error('Erro ao iniciar servidores:', e);
     }
@@ -58,6 +60,9 @@ app.on('window-all-closed', () => {
     }
     if (ordersServerInstance) {
         ordersServerInstance.close();
+    }
+    if (publicServerInstance) {
+        publicServerInstance.close();
     }
     if (process.platform !== 'darwin') {
         app.quit();
