@@ -157,7 +157,7 @@ const customLogoPath = path.join(configDir, 'company_logo.png');
 const OPERACIONAL_PADRAO = {
     alertaPreparoMin: 10,     // pedido em preparo ha mais que isto = alerta
     alertaIgnorarMin: 180,    // acima disto o pedido e considerado esquecido (nao alerta)
-    tvLayout: 'DESTAQUE',     // DESTAQUE | GRADE | ROTACAO
+    tvLayout: 'DESTAQUE',     // DESTAQUE | GRADE | ROTACAO | MENU
     tvDuracaoSeg: 8,
     tvGradeItens: 6,
     tvBannerACada: 3,         // na ROTACAO: um banner a cada N produtos
@@ -274,7 +274,7 @@ const handleSaveTheme = async (req, res) => {
             }
         }
         if (body.tvLayout !== undefined) {
-            if (!['DESTAQUE', 'GRADE', 'ROTACAO'].includes(body.tvLayout)) {
+            if (!['DESTAQUE', 'GRADE', 'ROTACAO', 'MENU'].includes(body.tvLayout)) {
                 return res.status(400).json({ success: false, error: 'tvLayout inválido' });
             }
             patch.tvLayout = body.tvLayout;

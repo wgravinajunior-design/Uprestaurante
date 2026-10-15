@@ -447,9 +447,23 @@
             align-items: center;
         }
 
+        .order-card.status-preparo .senha-tag { color: var(--gold); }
+        .order-card.status-pronto .senha-tag { color: var(--green); }
+        .order-card.pop { animation: card-pop .9s cubic-bezier(.2, 1.4, .4, 1) 1, pulse-card 3s 1s infinite alternate; }
+        @keyframes card-pop {
+            0% { transform: scale(.9); box-shadow: 0 0 0 0 rgba(16, 185, 129, .7); }
+            55% { transform: scale(1.04); box-shadow: 0 0 0 18px rgba(16, 185, 129, 0); }
+            100% { transform: scale(1); }
+        }
+        #faixaChamada { position: fixed; left: 50%; top: 14px; transform: translate(-50%, -140%); z-index: 90; min-width: min(560px, 92vw);
+            background: linear-gradient(135deg, #059669, #10B981); color: #fff; border-radius: 22px; padding: 14px 28px;
+            box-shadow: 0 18px 40px rgba(5, 150, 105, .45); text-align: center; transition: transform .45s cubic-bezier(.2, 1.3, .4, 1); pointer-events: none; }
+        #faixaChamada.show { transform: translate(-50%, 0); }
+        #faixaChamada small { display: block; font-size: 14px; font-weight: 800; letter-spacing: 3px; opacity: .9; }
+        #faixaChamada b { display: block; font-size: clamp(52px, 9vw, 110px); line-height: 1; font-weight: 900; letter-spacing: -2px; }
         .senha-tag {
             font-family: var(--font-display);
-            font-size: 25px;
+            font-size: 34px;
             font-weight: 900;
             letter-spacing: -0.5px;
             line-height: 1;
@@ -1012,6 +1026,7 @@
     </main>
 
     <!-- Modal: Generate Password & Thermal Print -->
+    <div id="faixaChamada" role="status" aria-live="assertive"><small>PEDIDO PRONTO • SENHA</small><b id="faixaNumero">--</b></div>
     <div class="modal-overlay" id="ticketModal">
         <div class="modal-card">
             <div class="modal-header">
@@ -1461,7 +1476,31 @@
         }
 
         // --- Render Orders Cards Grid (Compact & Sem Preço) ---
+        // estado anterior de cada pedido (para animar quando algo vira PRONTO) e faixa de chamada
+        const estadoAnterior = new Map();
+        const acabouPronto = new Set();
+        let faixaTimer = null;
+        function mostrarFaixa(senha) {
+            const el = document.getElementById('faixaChamada');
+            if (!el) return;
+            document.getElementById('faixaNumero').textContent = senha;
+            el.classList.add('show');
+            clearTimeout(faixaTimer);
+            faixaTimer = setTimeout(() => el.classList.remove('show'), 4500);
+        }
+        function detectarProntos(lista) {
+            let ultimo = null;
+            lista.forEach((o) => {
+                const antes = estadoAnterior.get(o.id);
+                if (antes && antes !== 'PRONTO' && o.estado === 'PRONTO') { acabouPronto.add(o.id); ultimo = o.senha; }
+                estadoAnterior.set(o.id, o.estado);
+            });
+            if (ultimo) mostrarFaixa(ultimo);
+            setTimeout(() => acabouPronto.clear(), 1500);
+        }
+
         function renderOrders() {
+            detectarProntos(allOrders);
             const grid = document.getElementById('ordersGrid');
             const searchVal = document.getElementById('searchInput').value.trim().toLowerCase();
 
@@ -1499,7 +1538,7 @@
                 const isPreparo = o.estado === 'PREPARO';
                 const isPronto = o.estado === 'PRONTO';
 
-                const cardClass = isPreparo ? 'status-preparo' : isPronto ? 'status-pronto' : 'status-entregue';
+                const cardClass = (isPreparo ? 'status-preparo' : isPronto ? 'status-pronto' : 'status-entregue') + (acabouPronto.has(o.id) ? ' pop' : '');
                 const badgeClass = isPreparo ? 'badge-preparo' : isPronto ? 'badge-pronto' : 'badge-entregue';
                 const badgeLabel = isPreparo ? '🟡 Em Preparo' : isPronto ? '✨ Pronto' : '✅ Entregue';
 
@@ -1893,6 +1932,42 @@
         });
         document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && wl) manterAcesa(); });
         manterAcesa();
+    })();
+    </script>
+
+    <!-- Acabamento: favicon, foco visivel, movimento reduzido, contador no titulo e tamanho do texto -->
+    <style>
+        :focus-visible { outline: 3px solid #38BDF8; outline-offset: 2px; border-radius: 6px; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+        #zoomTexto { position: fixed; right: 12px; bottom: 64px; z-index: 50; display: flex; gap: 6px; opacity: .55; transition: opacity .2s; }
+        #zoomTexto:hover, #zoomTexto:focus-within { opacity: 1; }
+        #zoomTexto button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(148,163,184,.45); background: rgba(15,23,42,.72); color: #f1f5f9; font-size: 15px; font-weight: 800; cursor: pointer; backdrop-filter: blur(4px); }
+    </style>
+    <div id="zoomTexto" role="group" aria-label="Tamanho do texto"><button type="button" id="zoomMenos" aria-label="Diminuir texto" title="Diminuir texto">A−</button><button type="button" id="zoomMais" aria-label="Aumentar texto" title="Aumentar texto">A+</button></div>
+    <script>
+    (function () {
+        try {
+            if (!document.querySelector('link[rel~="icon"]')) {
+                var l = document.createElement('link'); l.rel = 'icon'; l.href = 'data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20y%3D%27.9em%27%20font-size%3D%2790%27%3E%F0%9F%8E%AB%3C%2Ftext%3E%3C%2Fsvg%3E';
+                document.head.appendChild(l);
+            }
+        } catch (e) {}
+        var chave = 'tamanhoTexto:' + location.pathname;
+        var z = 1;
+        try { z = parseFloat(localStorage.getItem(chave)) || 1; } catch (e) {}
+        function aplicar() { document.documentElement.style.zoom = String(z); try { localStorage.setItem(chave, String(z)); } catch (e) {} }
+        aplicar();
+        document.getElementById('zoomMais').addEventListener('click', function () { z = Math.min(1.6, Math.round((z + 0.1) * 10) / 10); aplicar(); });
+        document.getElementById('zoomMenos').addEventListener('click', function () { z = Math.max(0.7, Math.round((z - 0.1) * 10) / 10); aplicar(); });
+        var base = document.title, espera = null;
+        function contar() {
+            espera = null;
+            var n = document.querySelectorAll('.order-card.status-preparo').length;
+            document.title = (n > 0 ? '(' + n + ') ' : '') + base;
+        }
+        new MutationObserver(function () { if (!espera) espera = setTimeout(contar, 400); })
+            .observe(document.body, { childList: true, subtree: true });
+        setTimeout(contar, 1500);
     })();
     </script>
 </body>

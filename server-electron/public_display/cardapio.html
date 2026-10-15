@@ -529,5 +529,33 @@
             es.addEventListener('products', () => { clearTimeout(t); t = setTimeout(carregar, 800); });
         }
     </script>
+
+    <!-- Acabamento: favicon, foco visivel, movimento reduzido, contador no titulo e tamanho do texto -->
+    <style>
+        :focus-visible { outline: 3px solid #38BDF8; outline-offset: 2px; border-radius: 6px; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+        #zoomTexto { position: fixed; right: 12px; bottom: 64px; z-index: 50; display: flex; gap: 6px; opacity: .55; transition: opacity .2s; }
+        #zoomTexto:hover, #zoomTexto:focus-within { opacity: 1; }
+        #zoomTexto button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(148,163,184,.45); background: rgba(15,23,42,.72); color: #f1f5f9; font-size: 15px; font-weight: 800; cursor: pointer; backdrop-filter: blur(4px); }
+    </style>
+    <div id="zoomTexto" role="group" aria-label="Tamanho do texto"><button type="button" id="zoomMenos" aria-label="Diminuir texto" title="Diminuir texto">A−</button><button type="button" id="zoomMais" aria-label="Aumentar texto" title="Aumentar texto">A+</button></div>
+    <script>
+    (function () {
+        try {
+            if (!document.querySelector('link[rel~="icon"]')) {
+                var l = document.createElement('link'); l.rel = 'icon'; l.href = 'data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20y%3D%27.9em%27%20font-size%3D%2790%27%3E%F0%9F%8D%BD%EF%B8%8F%3C%2Ftext%3E%3C%2Fsvg%3E';
+                document.head.appendChild(l);
+            }
+        } catch (e) {}
+        var chave = 'tamanhoTexto:' + location.pathname;
+        var z = 1;
+        try { z = parseFloat(localStorage.getItem(chave)) || 1; } catch (e) {}
+        function aplicar() { document.documentElement.style.zoom = String(z); try { localStorage.setItem(chave, String(z)); } catch (e) {} }
+        aplicar();
+        document.getElementById('zoomMais').addEventListener('click', function () { z = Math.min(1.6, Math.round((z + 0.1) * 10) / 10); aplicar(); });
+        document.getElementById('zoomMenos').addEventListener('click', function () { z = Math.max(0.7, Math.round((z - 0.1) * 10) / 10); aplicar(); });
+
+    })();
+    </script>
 </body>
 </html>

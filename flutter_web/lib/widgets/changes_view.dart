@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'feedback_widgets.dart';
 
 /// "O que mudou hoje": preços, promoções, estoque e status alterados no dia (ERP e este sistema).
 class ChangesView extends StatefulWidget {
@@ -220,7 +221,7 @@ class _ChangesViewState extends State<ChangesView> {
 
   Widget _corpo() {
     if (_carregando && _dados == null) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const SkeletonList();
     }
     if (_erro != null && _dados == null) {
       return Center(

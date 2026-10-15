@@ -13,6 +13,7 @@ import '../widgets/promotions_view.dart';
 import '../widgets/batch_dialogs.dart';
 import '../widgets/dashboard_view.dart';
 import '../widgets/changes_view.dart';
+import '../widgets/feedback_widgets.dart';
 import 'package:web/web.dart' as web;
 
 class HomeScreen extends StatefulWidget {
@@ -45,6 +46,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _totalCount = 0;
 
   final TextEditingController _searchController = TextEditingController();
+
+  // Contador por produto: muda quando o produto e salvo (dispara o brilho verde no cartao)
+  final Map<int, int> _flash = {};
 
   // Seleção em lote
   bool _selectionMode = false;
@@ -170,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onProductUpdated(Product updated) {
     setState(() {
+      _flash[updated.id] = (_flash[updated.id] ?? 0) + 1;
       final idx = _products.indexWhere((p) => p.id == updated.id);
       if (idx != -1) {
         _products[idx] = updated;
@@ -510,6 +515,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     _fetchProducts();
                   },
                 ),
+              ],
+            )
+          : null,
+      bottomNavigationBar: isMobile
+          ? NavigationBar(
+              height: 64,
+              backgroundColor: AppTheme.surfaceWhite,
+              indicatorColor: AppTheme.primaryLighter,
+              selectedIndex: _currentNavIndex.clamp(0, 4),
+              onDestinationSelected: (i) => setState(() => _currentNavIndex = i),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: [
+                const NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2, color: AppTheme.primary), label: 'Produtos'),
+                NavigationDestination(
+                  icon: Badge(
+                    isLabelVisible: _promoCounts.atencao > 0,
+                    label: Text('${_promoCounts.atencao}'),
+                    child: const Icon(Icons.local_offer_outlined),
+                  ),
+                  selectedIcon: const Icon(Icons.local_offer, color: AppTheme.primary),
+                  label: 'Promoções',
+                ),
+                const NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights, color: AppTheme.primary), label: 'Dashboard'),
+                const NavigationDestination(icon: Icon(Icons.today_outlined), selectedIcon: Icon(Icons.today, color: AppTheme.primary), label: 'Hoje'),
+                const NavigationDestination(icon: Icon(Icons.history), selectedIcon: Icon(Icons.history, color: AppTheme.primary), label: 'Auditoria'),
               ],
             )
           : null,
@@ -1377,16 +1407,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildCatalogContent(bool isMobile) {
     if (_isLoading) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: AppTheme.primary),
-            SizedBox(height: 14),
-            Text('Carregando produtos...', style: TextStyle(color: AppTheme.textSecondary)),
-          ],
-        ),
-      );
+      return _products.isEmpty ? const SkeletonGrid() : const Center(child: CircularProgressIndicator(color: AppTheme.primary));
     }
 
     if (_error != null) {
@@ -1405,17 +1426,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_products.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.search_off, size: 48, color: AppTheme.textMuted),
-            const SizedBox(height: 14),
-            const Text('Nenhum produto encontrado com os filtros selecionados.', style: TextStyle(color: AppTheme.textSecondary)),
-            const SizedBox(height: 12),
-            ElevatedButton(onPressed: _resetFilters, child: const Text('Limpar Filtros')),
-          ],
-        ),
+      return EmptyState(
+        icon: Icons.search_off,
+        title: 'Nenhum produto encontrado',
+        message: 'Nenhum item combina com os filtros e a busca atuais.',
+        actionLabel: 'Limpar filtros',
+        onAction: _resetFilters,
       );
     }
 
@@ -1469,7 +1485,7 @@ class _HomeScreenState extends State<HomeScreen> {
           itemCount: _products.length,
           itemBuilder: (ctx, index) {
             final p = _products[index];
-            return ProductCard(
+            final card = ProductCard(
               product: p,
               onUpdated: _onProductUpdated,
               onOpenDetails: () => _openDetails(p),
@@ -1477,6 +1493,8 @@ class _HomeScreenState extends State<HomeScreen> {
               selected: _selected.contains(p.id),
               onToggleSelect: () => _toggleSelect(p.id),
             );
+            // brilho verde ao salvar
+            return _flash.containsKey(p.id) ? SaveFlash(key: ValueKey('flash-${p.id}-${_flash[p.id]}'), child: card) : card;
           },
         );
       },

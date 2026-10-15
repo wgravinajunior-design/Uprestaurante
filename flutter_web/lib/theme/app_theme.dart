@@ -42,7 +42,7 @@ class AppTheme {
   // Typography Colors (High Contrast & Legible)
   static const Color textPrimary = Color(0xFF0F172A);    // Slate 900
   static const Color textSecondary = Color(0xFF475569);  // Slate 600
-  static const Color textMuted = Color(0xFF94A3B8);      // Slate 400
+  static const Color textMuted = Color(0xFF64748B);      // Slate 500 (contraste AA sobre branco)
 
   // Modern Gradients & Accents for Cards
   static const LinearGradient promoBadgeGradient = LinearGradient(

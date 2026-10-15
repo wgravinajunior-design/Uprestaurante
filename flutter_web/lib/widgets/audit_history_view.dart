@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/audit_entry.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'feedback_widgets.dart';
 
 class AuditHistoryView extends StatefulWidget {
   const AuditHistoryView({super.key});
@@ -39,7 +40,7 @@ class _AuditHistoryViewState extends State<AuditHistoryView> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+      return const SkeletonList();
     }
 
     if (_error != null) {

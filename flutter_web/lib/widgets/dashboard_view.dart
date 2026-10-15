@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'feedback_widgets.dart';
 
 /// Dashboard gerencial: faturamento, pedidos, ticket médio, comparativo, horários de pico e mais vendidos.
 class DashboardView extends StatefulWidget {
@@ -149,8 +150,8 @@ class _DashboardViewState extends State<DashboardView> {
           _filtros(),
           const SizedBox(height: 16),
           if (_erro != null && _dados == null) _estadoErro() else if (_dados == null) const Padding(
-            padding: EdgeInsets.all(60),
-            child: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+            padding: EdgeInsets.only(top: 10),
+            child: SkeletonDashboard(),
           ) else ...[
             if (_carregando) const LinearProgressIndicator(minHeight: 2, color: AppTheme.primary),
             _conteudo(_dados!, isMobile),
