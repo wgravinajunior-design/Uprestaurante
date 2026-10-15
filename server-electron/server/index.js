@@ -408,6 +408,7 @@ app.get('/api/stats', async (req, res) => {
 
 // 1b. TV Promotions (Dedicated for Store TV Display)
 app.get('/api/tv/promotions', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     try {
         const promotions = await db.getTvPromotions();
         res.json({ success: true, count: promotions.length, data: promotions });
@@ -567,7 +568,7 @@ app.put('/api/products/:id/promotion', async (req, res) => {
             valorPromocional,
             dtInicio,
             dtFim,
-            tipoValor: tipoValor || 'V'
+            tipoValor: 'V' // sempre em R$ (o percentual so serve para calcular o valor)
         });
         logEvent('AUDIT', `Promoção do produto ${id} atualizada: ${ativo !== false ? 'R$ ' + valorPromocional : 'Removida'} (Auditoria gerada)`);
         res.json({ success: true, data: updated });
@@ -928,7 +929,7 @@ function sseBroadcast(evt) {
 const ssePorIp = new Map();
 function attachSse(req, res) {
     const ipSse = String(req.headers['cf-connecting-ip'] || (req.socket && req.socket.remoteAddress) || '?');
-    if (sseClients.size >= 400 || (ssePorIp.get(ipSse) || 0) >= 8) return res.status(429).end();
+    if (sseClients.size >= 400 || (ssePorIp.get(ipSse) || 0) >= 60) return res.status(429).end();
     ssePorIp.set(ipSse, (ssePorIp.get(ipSse) || 0) + 1);
     res.on('close', () => {
         const n = (ssePorIp.get(ipSse) || 1) - 1;
@@ -1162,7 +1163,7 @@ const flutterWebPath = [
     path.join(__dirname, '..', '..', 'flutter_web', 'build', 'web')
 ].find((p) => fs.existsSync(path.join(p, 'index.html'))) || path.join(__dirname, '..', 'web');
 if (fs.existsSync(flutterWebPath)) {
-    app.use(express.static(flutterWebPath));
+    app.use(express.static(flutterWebPath, { index: false })); // index.html passa pelo get(*) abaixo (recebe o marcador da API)
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api/') && !req.path.startsWith('/tv') && !req.path.startsWith('/pedidos')) {
             // marca que o app e servido pela API (a porta pode ser qualquer uma)

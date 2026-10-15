@@ -161,20 +161,46 @@ class _DashboardViewState extends State<DashboardView> {
   }
 
   Widget _cabecalho() {
-    return Row(
-      children: [
-        const Icon(Icons.insights, color: AppTheme.primary, size: 26),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: Text('Dashboard gerencial',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 8, 16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.primaryDark, AppTheme.primary, AppTheme.primaryLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        IconButton(
-          tooltip: 'Atualizar',
-          icon: const Icon(Icons.refresh, color: AppTheme.textSecondary),
-          onPressed: _carregando ? null : _carregar,
-        ),
-      ],
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [BoxShadow(color: AppTheme.primaryGlow, blurRadius: 24, offset: Offset(0, 10))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.insights, color: Colors.white, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Dashboard gerencial',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3)),
+                const SizedBox(height: 2),
+                Text('${_data.format(_inicio)}  →  ${_data.format(_fim)}',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white.withValues(alpha: 0.85))),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Atualizar',
+            icon: _carregando
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _carregando ? null : _carregar,
+          ),
+        ],
+      ),
     );
   }
 
@@ -225,10 +251,6 @@ class _DashboardViewState extends State<DashboardView> {
               },
             ),
           ),
-        ),
-        Text(
-          '${_data.format(_inicio)} → ${_data.format(_fim)}',
-          style: const TextStyle(fontSize: 12, color: AppTheme.textMuted, fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -362,9 +384,14 @@ class _DashboardViewState extends State<DashboardView> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.borderLight),
+        boxShadow: AppTheme.modernCardShadow,
+        gradient: LinearGradient(
+          colors: [cor.withValues(alpha: 0.08), AppTheme.surfaceWhite],
+          begin: Alignment.topLeft,
+          end: Alignment.center,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,7 +410,12 @@ class _DashboardViewState extends State<DashboardView> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(valor, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppTheme.textPrimary)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(valor,
+                style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppTheme.textPrimary, letterSpacing: -0.8)),
+          ),
           if (rodape != null) ...[
             const SizedBox(height: 2),
             Text(rodape, style: const TextStyle(fontSize: 11.5, color: AppTheme.textMuted)),
@@ -498,16 +530,29 @@ class _DashboardViewState extends State<DashboardView> {
   Widget _cartao(String titulo, Widget filho, {String? subtitulo}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.surfaceWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppTheme.borderLight),
+        boxShadow: AppTheme.modernCardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(titulo, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 16,
+                decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(4)),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(titulo, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+              ),
+            ],
+          ),
           if (subtitulo != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),
@@ -542,7 +587,26 @@ class _DashboardViewState extends State<DashboardView> {
       children: [
         SizedBox(
           height: altura,
-          child: Row(
+          child: Stack(
+            children: [
+              for (final f in const [0.0, 0.5, 1.0])
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: f * (altura - 14),
+                  child: Container(height: 1, color: AppTheme.borderLight.withValues(alpha: f == 0 ? 1 : 0.6)),
+                ),
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Text(
+                  max >= 100 ? max.toStringAsFixed(0) : max.toStringAsFixed(1),
+                  style: const TextStyle(fontSize: 9.5, color: AppTheme.textMuted, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               for (var i = 0; i < valores.length; i++)
@@ -568,8 +632,14 @@ class _DashboardViewState extends State<DashboardView> {
                             heightFactor: (valores[i] / max).clamp(0.0, 1.0),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: destaque == i ? AppTheme.successLight : cor,
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: destaque == i
+                                      ? [AppTheme.success, AppTheme.successLight]
+                                      : [cor.withValues(alpha: 0.85), cor],
+                                ),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
                               ),
                             ),
                           ),
@@ -578,6 +648,9 @@ class _DashboardViewState extends State<DashboardView> {
                     ),
                   ),
                 ),
+            ],
+          ),
+              ),
             ],
           ),
         ),
@@ -704,9 +777,33 @@ class _DashboardViewState extends State<DashboardView> {
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
-                SizedBox(
-                  width: 24,
-                  child: Text('${i + 1}º', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.textMuted, fontSize: 12)),
+                Container(
+                  width: 26,
+                  height: 26,
+                  margin: const EdgeInsets.only(right: 10),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: i == 0
+                        ? const Color(0xFFFEF3C7)
+                        : i == 1
+                            ? const Color(0xFFE2E8F0)
+                            : i == 2
+                                ? const Color(0xFFFFEDD5)
+                                : AppTheme.surfaceMuted,
+                  ),
+                  child: Text('${i + 1}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        color: i == 0
+                            ? const Color(0xFFB45309)
+                            : i == 1
+                                ? const Color(0xFF475569)
+                                : i == 2
+                                    ? const Color(0xFFC2410C)
+                                    : AppTheme.textMuted,
+                      )),
                 ),
                 Expanded(
                   child: Column(

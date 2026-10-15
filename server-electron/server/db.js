@@ -873,7 +873,7 @@ WHERE PRD_ID = ${prdId};
 
         dtInicio = sqlDate(dtInicio);
         dtFim = sqlDate(dtFim);
-        if (tipoValor !== 'V' && tipoValor !== 'P') throw httpError(400, "Tipo de valor deve ser 'V' ou 'P'");
+        tipoValor = 'V'; // a promocao e sempre gravada em valor (R$)
         const dIniStr = dtInicio ? `'${dtInicio}'` : 'CURRENT_DATE';
         const dFimStr = dtFim ? `'${dtFim}'` : 'NULL';
 
@@ -1075,14 +1075,21 @@ async function quickEditProduct(prdId, { precoVenda, precoMinimo, emPromocao, pr
                 if (pVfinal > 0 && pP >= pVfinal) throw httpError(400, 'O preço promocional deve ser menor que o preço de venda');
                 prodUpdates.push(`PRD_VALOR_PROM = ${pP.toFixed(4)}`);
                 changes.push({ campo: 'PRD_VALOR_PROM', campoDesc: 'Preço Promocional', antigo: current.precoPromocao.toFixed(2), novo: pP.toFixed(2) });
-                const dI = sqlDate(dtInicioProm);
-                const dF = sqlDate(dtFimProm);
-                if (dI) prodUpdates.push(`PRD_DT_INI_PROM = '${dI}'`);
-                if (dF) prodUpdates.push(`PRD_DT_FIM_PROM = '${dF}'`);
+                // Inicio: o informado; senao mantem o ja gravado; senao hoje (sempre grava, nunca fica vazio)
+                const dI = sqlDate(dtInicioProm)
+                    || (current.dtInicioProm && String(current.dtInicioProm).substring(0, 10)) || hojeStr();
+                let dF = sqlDate(dtFimProm);
                 // reativar sem informar o fim: nao herda uma data de termino ja vencida (a promocao nasceria expirada)
-                if (!dF && current.dtFimProm && String(current.dtFimProm).substring(0, 10) < hojeStr()) {
-                    prodUpdates.push('PRD_DT_FIM_PROM = NULL');
+                if (!dF && current.dtFimProm && String(current.dtFimProm).substring(0, 10) >= hojeStr()) {
+                    dF = String(current.dtFimProm).substring(0, 10);
                 }
+                if (dF && dF < hojeStr()) throw httpError(400, 'A data de término já passou');
+                if (dF && dF < dI) throw httpError(400, 'A data de término não pode ser anterior ao início');
+                prodUpdates.push(`PRD_DT_INI_PROM = '${dI}'`);
+                prodUpdates.push(dF ? `PRD_DT_FIM_PROM = '${dF}'` : 'PRD_DT_FIM_PROM = NULL');
+                if (!current.tipoValorProm || current.tipoValorProm !== 'V') prodUpdates.push("PRD_TIPO_VALOR_PROM = 'V'");
+                changes.push({ campo: 'PRD_DT_INI_PROM', campoDesc: 'Início Promoção', antigo: current.dtInicioProm || '', novo: dI });
+                changes.push({ campo: 'PRD_DT_FIM_PROM', campoDesc: 'Fim Promoção', antigo: current.dtFimProm || '', novo: dF || 'Indeterminado' });
             }
         }
     }

@@ -806,10 +806,27 @@
         // Offline
         // ------------------------------------------------------------------
         let offline = false;
+        // Aviso so aparece apos falhas seguidas (uma queda rapida de rede/evento nao deve piscar a faixa)
+        let falhasSeguidas = 0;
+        let avisoTimer = null;
         function setOffline(v) {
-            if (offline === v) return;
-            offline = v;
-            document.getElementById('offlineBar').classList.toggle('show', v);
+            if (v) {
+                falhasSeguidas++;
+                if (offline || avisoTimer) return;
+                avisoTimer = setTimeout(() => {
+                    avisoTimer = null;
+                    if (falhasSeguidas >= 2) {
+                        offline = true;
+                        document.getElementById('offlineBar').classList.add('show');
+                    }
+                }, 8000);
+                return;
+            }
+            falhasSeguidas = 0;
+            if (avisoTimer) { clearTimeout(avisoTimer); avisoTimer = null; }
+            if (!offline) return;
+            offline = false;
+            document.getElementById('offlineBar').classList.remove('show');
         }
         async function apiGet(path) {
             try {
@@ -1257,13 +1274,13 @@
             es.addEventListener('products', agendarRecarga);   // promocoes, banners e configuracoes
             es.addEventListener('orders', agendarChamadas);    // pedido pronto -> chamada de senha
             es.addEventListener('hello', () => { setOffline(false); agendarChamadas(); });
-            es.onerror = () => setOffline(true);
+            // EventSource reconecta sozinho; falha de eventos nao marca offline (as buscas HTTP decidem)
         }
 
         // Redes de seguranca (conexao de eventos caida / virada de dia)
-        setInterval(fetchPromotions, 5 * 60000);
+        setInterval(fetchPromotions, 30000); // rede de seguranca: promocao desativada sai da TV em ate 30s mesmo sem evento
         setInterval(verificarChamadas, 10000);
-        setInterval(() => { if (offline) carregarTudo(); }, 5000);
+        setInterval(() => { if (offline || falhasSeguidas > 0) carregarTudo(); }, 5000);
 
         carregarTudo().then(() => verificarChamadas());
     </script>
