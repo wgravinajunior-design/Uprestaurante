@@ -65,4 +65,27 @@ function escrever(tipo, mensagem) {
     }
 }
 
-module.exports = { escrever, dir, descarregar };
+// Remove dados pessoais/segredos de uma mensagem antes de ir para a tela ou para o arquivo:
+// e-mail, CPF/CNPJ, telefone, JWT, pares chave=valor sensiveis e sequencias longas (chaves/tokens).
+const RE_EMAIL = new RegExp('[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}', 'g');
+const RE_CPF = new RegExp('\\b\\d{3}\\.?\\d{3}\\.?\\d{3}-?\\d{2}\\b', 'g');
+const RE_CNPJ = new RegExp('\\b\\d{2}\\.?\\d{3}\\.?\\d{3}/?\\d{4}-?\\d{2}\\b', 'g');
+const RE_FONE = new RegExp('(?:\\+?55)?\\s?\\(?\\d{2}\\)?\\s?9?\\d{4}[-\\s]?\\d{4}\\b', 'g');
+const RE_JWT = new RegExp('\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}(?:\\.[A-Za-z0-9_-]*)?', 'g');
+const RE_SEGREDO_KV = new RegExp('\\b(token|senha|password|passwd|secret|authorization|apikey|api_key)(["\']?\\s*[:=]\\s*["\']?)[^\\s"\',;&]+', 'gi');
+const RE_LONGO = new RegExp('\\b[A-Za-z0-9_-]{40,}\\b', 'g');
+
+function sanitizar(msg) {
+    let t = String(msg == null ? '' : msg);
+    t = t.replace(RE_EMAIL, '[email]');
+    t = t.replace(RE_CPF, '[cpf]');
+    t = t.replace(RE_CNPJ, '[cnpj]');
+    t = t.replace(RE_FONE, '[telefone]');
+    t = t.replace(RE_JWT, '[token]');
+    t = t.replace(RE_SEGREDO_KV, '$1$2[oculto]');
+    t = t.replace(RE_LONGO, '[segredo]');
+    if (t.length > 600) t = t.slice(0, 600) + '…';
+    return t;
+}
+
+module.exports = { escrever, dir, descarregar, sanitizar };

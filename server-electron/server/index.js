@@ -122,6 +122,7 @@ app.param('id', (req, res, next, val) => {
 const fileLog = require('./filelog');
 const recentLogs = [];
 function logEvent(type, message, details = null) {
+    message = fileLog.sanitizar(message); // sem e-mail/CPF/telefone/token no console nem no arquivo
     const entry = {
         id: Date.now() + Math.random().toString(36).substring(7),
         time: new Date().toLocaleTimeString(),

@@ -1,6 +1,6 @@
 {
   "name": "dusuco-erp-server",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Servidor Electron e API REST para integracao Firebird 5 com Flutter Web",
   "main": "main.js",
   "scripts": {

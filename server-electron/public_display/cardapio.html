@@ -72,6 +72,21 @@
         .offline { display: none; background: #B91C1C; color: #fff; text-align: center; padding: 8px; font-size: 13px; font-weight: 700; }
         .offline.show { display: block; }
 
+        .fav { position: absolute; top: 8px; right: 8px; z-index: 2; width: 36px; height: 36px; border-radius: 50%; border: 0; background: rgba(255,255,255,.92); color: #94a3b8; font-size: 19px; line-height: 1; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.18); display: flex; align-items: center; justify-content: center; transition: transform .15s; }
+        .fav:active { transform: scale(.88); }
+        .fav.on { color: #e11d48; }
+        .foto { cursor: zoom-in; }
+        #verFoto { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(2,6,23,.82); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 16px; }
+        #verFoto.show { display: flex; }
+        #verFoto .caixa { background: var(--card); border-radius: 24px; width: 100%; max-width: 520px; max-height: 94vh; overflow: auto; position: relative; }
+        #verFoto .imagem { width: 100%; aspect-ratio: 1 / 1; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+        #verFoto .imagem img { width: 100%; height: 100%; object-fit: contain; background: #0f172a; }
+        #verFoto .info { padding: 16px 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+        #verFoto .info h3 { margin: 0; font-size: 20px; font-weight: 900; }
+        #verFoto .info p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.4; }
+        #verFoto .linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+        #verFoto .fechar { position: absolute; top: 10px; left: 10px; z-index: 3; width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(15,23,42,.7); color: #fff; font-size: 18px; cursor: pointer; }
+        #verFoto .linha .add { width: auto; padding: 12px 22px; }
         .add { width: 100%; border: 0; border-radius: 13px; background: var(--primary); color: #fff; font-weight: 900; font-size: 13.5px; padding: 11px 12px; cursor: pointer; box-shadow: 0 6px 14px color-mix(in srgb, var(--primary) 38%, transparent); transition: transform .1s; }
         .add:active { transform: scale(.94); }
         .qtd-linha { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -155,6 +170,17 @@
             </div>
         </div>
     </div>
+    <div id="verFoto" role="dialog" aria-modal="true">
+        <div class="caixa">
+            <button class="fechar" id="verFotoFechar" type="button" aria-label="Fechar">✕</button>
+            <div class="imagem" id="verFotoImg"></div>
+            <div class="info">
+                <h3 id="verFotoNome"></h3>
+                <p id="verFotoDesc"></p>
+                <div class="linha"><div class="precos" id="verFotoPreco"></div><div id="verFotoAcao"></div></div>
+            </div>
+        </div>
+    </div>
     <div id="telaTotem" role="alert">
         <div class="p">SUA SENHA</div><div class="n" id="totemSenha">--</div>
         <div class="g">Pedido enviado!</div>
@@ -199,6 +225,11 @@
             desenhar();
         }).catch(() => {});
 
+        // Favoritos (neste aparelho)
+        const favoritos = new Set();
+        try { JSON.parse(localStorage.getItem('cardapioFavs') || '[]').forEach((n) => favoritos.add(Number(n))); } catch (e) { /* sem armazenamento */ }
+        function salvarFavoritos() { try { localStorage.setItem('cardapioFavs', JSON.stringify([...favoritos])); } catch (e) { /* ignora */ } }
+
         function cartao(i) {
             const foto = i.foto
                 ? `<img loading="lazy" src="${esc(i.foto)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'sem',textContent:'Sem foto'}))">`
@@ -208,7 +239,7 @@
                 ? `<span class="de">${dinheiro(i.preco)}</span><span class="por">${dinheiro(i.precoPromocao)}</span>${i.promoAte ? `<span class="ate">Até ${i.promoAte.split('-').reverse().slice(0, 2).join('/')}</span>` : ''}`
                 : `<span class="preco">${dinheiro(i.preco)}</span>${i.unidade && i.unidade !== 'UN' ? `<span class="un">/ ${esc(i.unidade)}</span>` : ''}`;
             return `<article class="item${promo ? ' promo' : ''}">
-                <div class="foto">${foto}${promo ? `<span class="selo">-${i.descontoPercentual}%</span>` : ''}</div>
+                <div class="foto" data-ver="${i.id}">${foto}<button class="fav${favoritos.has(i.id) ? ' on' : ''}" type="button" data-fav="${i.id}" aria-label="Favoritar">${favoritos.has(i.id) ? '♥' : '♡'}</button>${promo ? `<span class="selo">-${i.descontoPercentual}%</span>` : ''}</div>
                 <div class="corpo">
                     <div class="nome-item">${esc(nomeBonito(i.nome))}</div>
                     ${i.descricao ? `<div class="desc">${esc(i.descricao)}</div>` : ''}
@@ -229,6 +260,16 @@
             if (dst.length) secoes.push({ id: 'destaque', nome: '⭐ ' + ((dados.destaques || {}).titulo || 'Prato do dia'), itens: dst, promo: true });
             const mais = filtra(((dados.maisPedidos || {}).itens) || []);
             if (mais.length) secoes.push({ id: 'mais', nome: '🔥 ' + ((dados.maisPedidos || {}).titulo || 'Mais pedidos'), itens: mais, promo: true });
+            if (favoritos.size) {
+                const vistos = new Set();
+                const todos = [];
+                [...(((dados.destaques || {}).itens) || []), ...(((dados.maisPedidos || {}).itens) || []), ...(dados.promocoes || []),
+                    ...(dados.secoes || []).flatMap((x) => x.itens)].forEach((it) => {
+                    if (favoritos.has(it.id) && !vistos.has(it.id)) { vistos.add(it.id); todos.push(it); }
+                });
+                const favs = filtra(todos);
+                if (favs.length) secoes.unshift({ id: 'favoritos', nome: '❤️ Meus favoritos', itens: favs, promo: true });
+            }
             const promos = filtra(dados.promocoes || []);
             if (promos.length) secoes.push({ id: 'promo', nome: '🔥 Promoções do dia', itens: promos, promo: true });
             (dados.secoes || []).forEach((s) => {
@@ -447,6 +488,38 @@
             });
         }
         window.addEventListener('scroll', marcarCategoria, { passive: true });
+        // ---- favoritos e foto ampliada ----
+        function abrirFoto(id) {
+            const i = itemPorId(id);
+            if (!i) return;
+            const promo = i.precoPromocao !== null;
+            $('verFotoImg').innerHTML = i.foto ? '<img alt="" src="' + esc(i.foto) + '">' : '<span class="sem">Sem foto</span>';
+            $('verFotoNome').textContent = nomeBonito(i.nome);
+            $('verFotoDesc').textContent = i.descricao || '';
+            $('verFotoPreco').innerHTML = promo
+                ? '<span class="de">' + dinheiro(i.preco) + '</span><span class="por">' + dinheiro(i.precoPromocao) + '</span>'
+                : '<span class="preco">' + dinheiro(i.preco) + '</span>';
+            $('verFotoAcao').innerHTML = pedidoOnline ? '<button class="add" type="button" data-add="' + i.id + '" data-fecharfoto="1">+ Pedir</button>' : '';
+            $('verFoto').classList.add('show');
+        }
+        function fecharFoto() { $('verFoto').classList.remove('show'); }
+        document.addEventListener('click', (e) => {
+            const fav = e.target.closest('[data-fav]');
+            if (fav) {
+                e.stopPropagation();
+                const id = Number(fav.dataset.fav);
+                if (favoritos.has(id)) favoritos.delete(id); else favoritos.add(id);
+                salvarFavoritos();
+                desenhar();
+                return;
+            }
+            if (e.target.closest('[data-fecharfoto]')) { setTimeout(fecharFoto, 0); return; }
+            const ver = e.target.closest('[data-ver]');
+            if (ver && !e.target.closest('[data-add]')) { abrirFoto(Number(ver.dataset.ver)); return; }
+            if (e.target === $('verFoto')) fecharFoto();
+        }, true);
+        $('verFotoFechar').addEventListener('click', fecharFoto);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharFoto(); });
         $('busca').addEventListener('input', desenhar);
         carregar();
         setInterval(carregar, 60000);
