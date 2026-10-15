@@ -1138,7 +1138,10 @@ if (fs.existsSync(ordersDisplayPath)) {
 
 // --- Static Flutter Web Hosting ---
 // When the Flutter app is compiled to build/web, serve it directly!
-const flutterWebPath = path.join(__dirname, '..', '..', 'flutter_web', 'build', 'web');
+const flutterWebPath = [
+    path.join(__dirname, '..', 'web'),
+    path.join(__dirname, '..', '..', 'flutter_web', 'build', 'web')
+].find((p) => fs.existsSync(path.join(p, 'index.html'))) || path.join(__dirname, '..', 'web');
 if (fs.existsSync(flutterWebPath)) {
     app.use(express.static(flutterWebPath));
     app.get('*', (req, res) => {

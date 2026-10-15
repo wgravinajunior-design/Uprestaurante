@@ -7,7 +7,10 @@
     "start": "electron .",
     "server": "node server/index.js",
     "diagnostico": "node diagnostico.js",
-    "test": "node tests/run.js"
+    "test": "node tests/run.js",
+    "copy-web": "node scripts/copy-web.js",
+    "dist": "npm run copy-web && electron-builder --win nsis --publish never",
+    "release": "npm run copy-web && electron-builder --win nsis --publish always"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -16,9 +19,55 @@
     "node-firebird": "^2.18.2",
     "qrcode": "^1.5.4",
     "sharp": "^0.33.5",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
-    "electron": "^30.5.1"
+    "electron": "^30.5.1",
+    "electron-builder": "^25.1.8"
+  },
+  "author": "wgravinajunior-design",
+  "homepage": "https://github.com/wgravinajunior-design/Uprestaurante",
+  "build": {
+    "appId": "br.com.uprestaurante.server",
+    "productName": "Uprestaurante",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "updater.js",
+      "server/**",
+      "ui/**",
+      "tv_display/**",
+      "kds_display/**",
+      "orders_display/**",
+      "public_display/**",
+      "auth_display/**",
+      "config/db.example.json",
+      "web/**",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/sharp/**",
+      "**/node_modules/@img/**"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "wgravinajunior-design",
+        "repo": "Uprestaurante"
+      }
+    ]
   }
 }

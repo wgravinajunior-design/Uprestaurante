@@ -6,7 +6,7 @@ const os = require('os');
 // Configuracao: variaveis de ambiente ou config/db.json (nao versionar credenciais)
 let fileCfg = {};
 try {
-    const cfgPath = path.join(__dirname, '..', 'config', 'db.json');
+    const cfgPath = path.join(process.env.CONFIG_DIR || path.join(__dirname, '..', 'config'), 'db.json');
     if (fs.existsSync(cfgPath)) fileCfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
 } catch (e) {
     console.warn('Erro ao ler config/db.json:', e.message);
@@ -104,7 +104,7 @@ const fbOptions = {
 };
 
 // --- Configuracao do banco editavel em tempo de execucao (tela do servidor) ---
-const CFG_PATH = path.join(__dirname, '..', 'config', 'db.json');
+const CFG_PATH = path.join(process.env.CONFIG_DIR || path.join(__dirname, '..', 'config'), 'db.json');
 
 function getDbConfig() {
     return {

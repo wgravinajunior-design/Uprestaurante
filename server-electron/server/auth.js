@@ -8,7 +8,7 @@ const db = require('./db');
 
 const COOKIE = 'dusuco_auth';
 const TTL_MS = 12 * 60 * 60 * 1000;
-const SECRET_PATH = path.join(__dirname, '..', 'config', 'auth_secret.json');
+const SECRET_PATH = path.join(process.env.CONFIG_DIR || path.join(__dirname, '..', 'config'), 'auth_secret.json');
 
 function loadSecret() {
     try {

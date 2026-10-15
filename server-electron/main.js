@@ -1,6 +1,19 @@
 const { app, BrowserWindow, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
+const fs0 = require('fs');
+
+// Instalado: config/cache em %APPDATA% (a pasta do app e somente leitura e e trocada a cada atualizacao)
+if (app.isPackaged) {
+    const dataDir = app.getPath('userData');
+    process.env.CONFIG_DIR = process.env.CONFIG_DIR || path.join(dataDir, 'config');
+    process.env.CACHE_DIR = process.env.CACHE_DIR || path.join(dataDir, 'cache');
+    fs0.mkdirSync(process.env.CONFIG_DIR, { recursive: true });
+    const seed = path.join(__dirname, 'config', 'db.example.json');
+    const dst = path.join(process.env.CONFIG_DIR, 'db.json');
+    if (!fs0.existsSync(dst) && fs0.existsSync(seed)) fs0.copyFileSync(seed, dst);
+}
 const { startServer, logEvent } = require('./server/index');
+const { setupAutoUpdate } = require('./updater');
 
 let mainWindow;
 let serverInstance;
@@ -96,7 +109,10 @@ ipcMain.handle('pick-db-file', async (_e, current) => {
     return r.canceled ? null : r.filePaths[0];
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+    await createWindow();
+    setupAutoUpdate(() => mainWindow);
+});
 
 app.on('window-all-closed', () => {
     if (serverInstance) {
