@@ -66,8 +66,9 @@ async function createWindow() {
 const { execFile } = require('child_process');
 const fs = require('fs');
 const SERVICE_TASK = 'DusucoERP-Servidor';
-const SERVICE_SCRIPT = path.join(__dirname, 'service', 'service-admin.ps1');
-const SERVICE_LOG = path.join(__dirname, 'service', 'service-last.log');
+const SVC_DIR = path.join(__dirname, 'service').replace('app.asar', 'app.asar.unpacked');
+const SERVICE_SCRIPT = path.join(SVC_DIR, 'service-admin.ps1');
+const SERVICE_LOG = path.join(app.getPath('temp'), 'uprestaurante-service-last.log');
 
 function serviceStatus() {
     return new Promise((resolve) => {
@@ -81,7 +82,7 @@ function serviceStatus() {
 function runElevated(action) {
     return new Promise((resolve) => {
         try { fs.rmSync(SERVICE_LOG, { force: true }); } catch (e) { /* ignora */ }
-        const inner = `-NoProfile -ExecutionPolicy Bypass -File "${SERVICE_SCRIPT}" -Action ${action}`;
+        const inner = `-NoProfile -ExecutionPolicy Bypass -File "${SERVICE_SCRIPT}" -Action ${action} -LogFile "${SERVICE_LOG}" -DataDir "${process.env.CONFIG_DIR ? path.dirname(process.env.CONFIG_DIR) : ''}" -AppExe "${process.execPath}" -Packaged ${app.isPackaged ? 1 : 0}`;
         const cmd = `Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '${inner.replace(/'/g, "''")}'`;
         execFile('powershell.exe', ['-NoProfile', '-Command', cmd], { windowsHide: true }, async (err) => {
             if (err) return resolve({ ok: false, message: 'Permissão de administrador negada ou cancelada' });

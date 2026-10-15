@@ -27,6 +27,8 @@ function findExe(custom) {
     const candidates = [
         custom,
         process.env.CLOUDFLARED_PATH,
+        process.resourcesPath && path.join(process.resourcesPath, 'bin', 'cloudflared.exe'), // embutido no instalador
+        path.join(__dirname, '..', 'bin', 'cloudflared.exe'),
         'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
         'C:\\Program Files\\cloudflared\\cloudflared.exe',
         'C:\\Program Files\\Cloudflare\\Cloudflared\\cloudflared.exe'
