@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const DEFAULTS = { api: 8080, tv: 8081, orders: 8082, public: 8083 };
+const DEFAULTS = { api: 8080, tv: 8081, orders: 8082, public: 8083, kds: 8084, senhas: 8085 };
 const KEYS = Object.keys(DEFAULTS);
 const file = () => path.join(process.env.CONFIG_DIR || path.join(__dirname, '..', 'config'), 'ports.json');
 

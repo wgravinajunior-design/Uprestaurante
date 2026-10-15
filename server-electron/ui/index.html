@@ -427,7 +427,7 @@
 
     <div class="footer">
         <span id="ftDb">Banco: —</span>
-        <span>Versão 1.0.3 • Electron & Node.js</span>
+        <span>Versão 1.0.4 • Electron & Node.js</span>
     </div>
 
 
@@ -452,6 +452,8 @@
                         <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">Vitrine TV<input type="number" id="portTv" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
                         <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">Fila de Senhas &amp; KDS<input type="number" id="portOrders" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
                         <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">Cardápio / Área pública (túnel)<input type="number" id="portPublic" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
+                        <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">KDS Cozinha (raiz)<input type="number" id="portKds" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
+                        <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">Fila de Senhas (raiz)<input type="number" id="portSenhas" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
                     </div>
                     <div id="portsMsg" style="font-size:12px;min-height:16px;color:#94a3b8;margin-top:12px;"></div>
                     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
@@ -467,7 +469,7 @@
         </div>
     </div>
     <script>
-        window.PORTS = (window.appCfg && window.appCfg.ports) || { api: 8080, tv: 8081, orders: 8082, public: 8083 };
+        window.PORTS = (window.appCfg && window.appCfg.ports) || { api: 8080, tv: 8081, orders: 8082, public: 8083, kds: 8084, senhas: 8085 };
         document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('[data-port]').forEach((e) => { e.textContent = window.PORTS[e.dataset.port]; }));
     </script>
     <script>
@@ -486,10 +488,10 @@
         $('btnOpenCfg').addEventListener('click', () => { $('cfgModal').classList.add('open'); show(document.querySelector('.cfg-tab.active')); });
         $('btnCloseCfg').addEventListener('click', () => $('cfgModal').classList.remove('open'));
         $('cfgModal').addEventListener('click', (e) => { if (e.target === $('cfgModal')) $('cfgModal').classList.remove('open'); });
-        const pf = { api: 'portApi', tv: 'portTv', orders: 'portOrders', public: 'portPublic' };
+        const pf = { api: 'portApi', tv: 'portTv', orders: 'portOrders', public: 'portPublic', kds: 'portKds', senhas: 'portSenhas' };
         const fillPorts = (o) => Object.keys(pf).forEach((k) => { $(pf[k]).value = o[k]; });
         fillPorts(window.PORTS);
-        $('btnPortsDefault').addEventListener('click', () => fillPorts({ api: 8080, tv: 8081, orders: 8082, public: 8083 }));
+        $('btnPortsDefault').addEventListener('click', () => fillPorts({ api: 8080, tv: 8081, orders: 8082, public: 8083, kds: 8084, senhas: 8085 }));
         $('btnPortsSave').addEventListener('click', async () => {
             const v = {}; Object.keys(pf).forEach((k) => { v[k] = Number($(pf[k]).value); });
             const msg = $('portsMsg');

@@ -6,7 +6,7 @@ const arg = process.argv.find((a) => a.startsWith('--api-token='));
 const apiToken = arg ? arg.substring('--api-token='.length) : '';
 
 const portsArg = process.argv.find((a) => a.startsWith('--ports='));
-let ports = { api: 8080, tv: 8081, orders: 8082, public: 8083 };
+let ports = { api: 8080, tv: 8081, orders: 8082, public: 8083, kds: 8084, senhas: 8085 };
 try { if (portsArg) ports = JSON.parse(portsArg.substring('--ports='.length)); } catch (e) { /* padrao */ }
 
 contextBridge.exposeInMainWorld('appCfg', {

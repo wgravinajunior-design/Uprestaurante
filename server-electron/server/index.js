@@ -20,6 +20,8 @@ const PORT = process.env.PORT || portsCfg.api;
 const PORT_TV = process.env.PORT_TV || portsCfg.tv;
 const PORT_ORDERS = process.env.PORT_ORDERS || portsCfg.orders;
 const PORT_PUBLIC = process.env.PORT_PUBLIC || portsCfg.public;
+const PORT_KDS = process.env.PORT_KDS || portsCfg.kds;
+const PORT_SENHAS = process.env.PORT_SENHAS || portsCfg.senhas;
 
 // Dedicated TV Signage Express App (Port 8081)
 // CORS: aceita apenas origens do mesmo host (portas 8080/8081/8082) ou requisicoes sem Origin
@@ -77,6 +79,14 @@ app.use(express.json({ limit: '10mb' }));
 ordersApp.use(express.json({ limit: '10mb' }));
 tvApp.use(express.json({ limit: '10mb' }));
 
+// KDS e Fila de Senhas em portas proprias (raiz do dominio, ex.: kds.meudominio.com)
+const kdsApp = express();
+const senhasApp = express();
+for (const a of [kdsApp, senhasApp]) {
+    a.use(cors(corsOptions));
+    a.use(express.json({ limit: '10mb' }));
+}
+
 // Forward ONLY API routes from dedicated ports (8081, 8082) through main app router, keeping pages completely isolated
 const forwardToApi = (req, res, next) => {
     if (req.path.startsWith('/api/')) {
@@ -88,13 +98,17 @@ const forwardToApi = (req, res, next) => {
 // (apenas o admin da TV, o painel de senhas e o KDS exigem login)
 app.post('/api/auth/login', auth.login);
 app.post('/api/auth/logout', auth.logout);
-for (const a of [app, tvApp, ordersApp]) a.get('/login', auth.loginPage);
+for (const a of [app, tvApp, ordersApp, kdsApp, senhasApp]) a.get('/login', auth.loginPage);
+kdsApp.use(auth.pageGuard());
+senhasApp.use(auth.pageGuard());
 tvApp.use(auth.pageGuard(/^\/admin(\.html)?$/i));
 ordersApp.use(auth.pageGuard());
 app.use(auth.pageGuard(/^\/(kds|pedidos|tv\/admin)/i));
 
 tvApp.use(forwardToApi);
 ordersApp.use(forwardToApi);
+kdsApp.use(forwardToApi);
+senhasApp.use(forwardToApi);
 
 // Valida :id numerico em todas as rotas
 app.param('id', (req, res, next, val) => {
@@ -1122,6 +1136,8 @@ const kdsDisplayPath = path.join(__dirname, '..', 'kds_display');
 if (fs.existsSync(kdsDisplayPath)) {
     app.use('/kds', express.static(kdsDisplayPath));
     ordersApp.use('/kds', express.static(kdsDisplayPath));
+    kdsApp.use(express.static(kdsDisplayPath));
+    kdsApp.get('*', (req, res) => res.sendFile(path.join(kdsDisplayPath, 'index.html')));
 }
 
 // --- Orders & Password Panel Hosting (Port 8082 & /pedidos mirror on Port 8080) ---
@@ -1131,6 +1147,8 @@ if (fs.existsSync(ordersDisplayPath)) {
     app.use('/pedidos', express.static(ordersDisplayPath));
 
     // Serve on dedicated ordersApp (Port 8082)
+    senhasApp.use(express.static(ordersDisplayPath));
+    senhasApp.get('*', (req, res) => res.sendFile(path.join(ordersDisplayPath, 'index.html')));
     ordersApp.use(express.static(ordersDisplayPath));
     ordersApp.get('*', (req, res) => {
         res.sendFile(path.join(ordersDisplayPath, 'index.html'));
@@ -1166,6 +1184,8 @@ const jsonErrorHandler = (err, req, res, next) => {
 };
 tvApp.use(jsonErrorHandler);
 ordersApp.use(jsonErrorHandler);
+kdsApp.use(jsonErrorHandler);
+senhasApp.use(jsonErrorHandler);
 
 // App publico (clientes): porta separada, somente leitura
 const publicApp = publicMod.createPublicApp({
@@ -1237,6 +1257,13 @@ function startServer(port = PORT, tvPort = PORT_TV, ordersPort = PORT_ORDERS) {
                 });
             } catch (err) {
                 logEvent('ERROR', 'Erro ao iniciar porta pública: ' + err.message);
+            }
+
+            for (const [nome, a, p] of [['KDS Cozinha', kdsApp, PORT_KDS], ['Fila de Senhas', senhasApp, PORT_SENHAS]]) {
+                try {
+                    const srv = a.listen(p, () => logEvent('SYSTEM', `${nome} ativo na porta ${p} (http://localhost:${p})`));
+                    srv.on('error', (err) => logEvent('ERROR', `Aviso ao abrir porta ${nome} ${p}: ` + err.message));
+                } catch (err) { logEvent('ERROR', `Erro ao iniciar ${nome}: ` + err.message); }
             }
 
             try {
