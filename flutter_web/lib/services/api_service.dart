@@ -334,6 +334,16 @@ class ApiService {
     throw _error(response, 'Falha ao carregar o dashboard');
   }
 
+  /// Define a meta diária de faturamento exibida no dashboard.
+  static Future<void> setMetaDiaria(double valor) async {
+    final response = await _client.put(
+      Uri.parse('$baseUrl/api/dashboard/meta'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'metaDiaria': valor}),
+    );
+    if (response.statusCode != 200) throw _error(response, 'Falha ao salvar a meta');
+  }
+
   /// Alterações do dia (preço, promoção, estoque, status...) de [data] = 'AAAA-MM-DD'.
   static Future<Map<String, dynamic>> getChanges(String data) async {
     final uri = Uri.parse('$baseUrl/api/changes').replace(queryParameters: {'data': data});

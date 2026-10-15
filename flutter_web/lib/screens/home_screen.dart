@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../models/dashboard_stats.dart';
@@ -12,6 +13,7 @@ import '../widgets/promotions_view.dart';
 import '../widgets/batch_dialogs.dart';
 import '../widgets/dashboard_view.dart';
 import '../widgets/changes_view.dart';
+import 'package:web/web.dart' as web;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,9 +53,49 @@ class _HomeScreenState extends State<HomeScreen> {
   // Promoções que pedem atenção (selo no menu)
   PromotionCounts _promoCounts = const PromotionCounts();
 
+  // Filtros, ordenacao e modo de visualizacao lembrados neste navegador
+  static const _kFiltros = 'upweb.filtros';
+
+  void _restaurarFiltros() {
+    try {
+      final raw = web.window.localStorage.getItem(_kFiltros);
+      if (raw == null || raw.isEmpty) return;
+      final m = jsonDecode(raw);
+      if (m is! Map) return;
+      String pick(String k, List<String> ok, String def) {
+        final v = m[k];
+        return v is String && ok.contains(v) ? v : def;
+      }
+      _selectedStatus = pick('status', const ['TODOS', 'ATIVOS', 'INATIVOS'], 'TODOS');
+      _selectedPromo = pick('promo', const ['TODOS', 'EM_PROMOCAO', 'REGULAR'], 'TODOS');
+      _selectedStock = pick('stock', const ['TODOS', 'BAIXO', 'NORMAL', 'SEM_ESTOQUE'], 'TODOS');
+      _selectedSort = pick('sort', const [
+        'PADRAO', 'MAIS_RECENTES', 'PRECO_ASC', 'PRECO_DESC', 'ESTOQUE_ASC', 'ESTOQUE_DESC', 'NOME_ASC',
+        'DESCONTO_DESC', 'MARGEM_DESC', 'MARGEM_ASC'
+      ], 'PADRAO');
+      if (m['grid'] is bool) _isGridView = m['grid'] as bool;
+    } catch (_) {/* sem armazenamento: usa os padroes */}
+  }
+
+  void _salvarFiltros() {
+    try {
+      web.window.localStorage.setItem(
+        _kFiltros,
+        jsonEncode({
+          'status': _selectedStatus,
+          'promo': _selectedPromo,
+          'stock': _selectedStock,
+          'sort': _selectedSort,
+          'grid': _isGridView,
+        }),
+      );
+    } catch (_) {/* ignora */}
+  }
+
   @override
   void initState() {
     super.initState();
+    _restaurarFiltros();
     _loadInitialData();
     ApiService.reconnected.addListener(_onReconnected);
   }
@@ -90,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchProducts() async {
     final seq = ++_fetchSeq;
+    _salvarFiltros();
     setState(() {
       _isLoading = true;
       _error = null;
@@ -1280,6 +1323,8 @@ class _HomeScreenState extends State<HomeScreen> {
             DropdownMenuItem(value: 'ESTOQUE_ASC', child: Text('Menor Estoque', style: TextStyle(fontSize: 12))),
             DropdownMenuItem(value: 'ESTOQUE_DESC', child: Text('Maior Estoque', style: TextStyle(fontSize: 12))),
             DropdownMenuItem(value: 'NOME_ASC', child: Text('Nome (A-Z)', style: TextStyle(fontSize: 12))),
+            DropdownMenuItem(value: 'MARGEM_DESC', child: Text('Maior Margem %', style: TextStyle(fontSize: 12))),
+            DropdownMenuItem(value: 'MARGEM_ASC', child: Text('Menor Margem %', style: TextStyle(fontSize: 12))),
             DropdownMenuItem(value: 'DESCONTO_DESC', child: Text('Maior Desconto %', style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.bold))),
           ],
           onChanged: (val) {
@@ -1309,12 +1354,12 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             tooltip: 'Visualização em Cards',
             icon: Icon(Icons.grid_view, color: _isGridView ? AppTheme.primary : AppTheme.textMuted, size: 18),
-            onPressed: () => setState(() => _isGridView = true),
+            onPressed: () { setState(() => _isGridView = true); _salvarFiltros(); },
           ),
           IconButton(
-            tooltip: 'Visualização em Tabela',
+            tooltip: 'Visualização compacta (tabela)',
             icon: Icon(Icons.table_rows, color: !_isGridView ? AppTheme.primary : AppTheme.textMuted, size: 18),
-            onPressed: () => setState(() => _isGridView = false),
+            onPressed: () { setState(() => _isGridView = false); _salvarFiltros(); },
           ),
           IconButton(
             tooltip: _selectionMode ? 'Sair da seleção em lote' : 'Selecionar vários (edição em lote)',

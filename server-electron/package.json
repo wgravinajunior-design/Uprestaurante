@@ -1,6 +1,6 @@
 {
   "name": "dusuco-erp-server",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Servidor Electron e API REST para integracao Firebird 5 com Flutter Web",
   "main": "main.js",
   "scripts": {
@@ -10,7 +10,8 @@
     "test": "node tests/run.js",
     "copy-web": "node scripts/copy-web.js && node scripts/get-cloudflared.js",
     "dist": "npm run copy-web && electron-builder --win nsis --publish never",
-    "release": "npm run copy-web && electron-builder --win nsis --publish always"
+    "release": "node scripts/run-tests.js && npm run copy-web && electron-builder --win nsis --publish always",
+    "test:release": "node scripts/run-tests.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -48,7 +49,8 @@
       "config/db.example.json",
       "web/**",
       "package.json",
-      "service/service-admin.ps1"
+      "service/service-admin.ps1",
+      "server/filelog.js"
     ],
     "asarUnpack": [
       "**/node_modules/sharp/**",
@@ -56,7 +58,8 @@
       "service/**"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "publisherName": "Uprestaurante"
     },
     "nsis": {
       "oneClick": false,

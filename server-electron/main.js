@@ -14,7 +14,7 @@ if (app.isPackaged) {
 }
 const portsCfg = require('./server/ports');
 const { startServer, logEvent } = require('./server/index');
-const { setupAutoUpdate } = require('./updater');
+const { setupAutoUpdate, checkNow, installNow, getState } = require('./updater');
 
 let mainWindow;
 let serverInstance;
@@ -97,6 +97,19 @@ function runElevated(action) {
     });
 }
 
+ipcMain.handle('update-info', () => ({
+    version: app.getVersion(),
+    packaged: app.isPackaged,
+    state: getState(),
+    logsDir: require('./server/filelog').dir()
+}));
+ipcMain.handle('update-check', () => checkNow());
+ipcMain.handle('update-install', () => { installNow(); return getState(); });
+ipcMain.handle('open-logs', async () => {
+    const d = require('./server/filelog').dir();
+    try { fs0.mkdirSync(d, { recursive: true }); } catch (e) { /* ignora */ }
+    return shell.openPath(d);
+});
 ipcMain.handle('ports-get', () => ({ current: portsCfg.get(), defaults: portsCfg.DEFAULTS }));
 ipcMain.handle('ports-save', (_e, input) => {
     try {

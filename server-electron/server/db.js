@@ -466,6 +466,10 @@ async function getProducts({ search = '', status = 'TODOS', promo = 'TODOS', sto
         orderByClause = "COALESCE(E.PRDE_ESTOQUE, 0) DESC, P.PRD_ID DESC";
     } else if (sort === 'NOME_ASC') {
         orderByClause = "P.PRD_DESCRICAO ASC, P.PRD_ID DESC";
+    } else if (sort === 'MARGEM_DESC' || sort === 'MARGEM_ASC') {
+        // margem % = (venda - compra) / venda; sem custo informado vai para o fim da lista
+        const margem = '(CASE WHEN (P.PRD_PRECO_COMPRA > 0 AND P.PRD_PRECO_VENDA > 0) THEN ((P.PRD_PRECO_VENDA - P.PRD_PRECO_COMPRA) / P.PRD_PRECO_VENDA) ELSE NULL END)';
+        orderByClause = `(CASE WHEN ${margem} IS NULL THEN 1 ELSE 0 END), ${margem} ${sort === 'MARGEM_DESC' ? 'DESC' : 'ASC'}, P.PRD_ID DESC`;
     } else if (sort === 'DESCONTO_DESC') {
         orderByClause = "(CASE WHEN (P.PRD_VALOR_PROM > 0 AND P.PRD_PRECO_VENDA > 0) THEN ((P.PRD_PRECO_VENDA - P.PRD_VALOR_PROM) / P.PRD_PRECO_VENDA) ELSE 0 END) DESC, P.PRD_ID DESC";
     }

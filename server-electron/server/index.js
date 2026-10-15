@@ -119,6 +119,7 @@ app.param('id', (req, res, next, val) => {
 });
 
 // Request logging for desktop GUI
+const fileLog = require('./filelog');
 const recentLogs = [];
 function logEvent(type, message, details = null) {
     const entry = {
@@ -131,6 +132,7 @@ function logEvent(type, message, details = null) {
     recentLogs.unshift(entry);
     if (recentLogs.length > 200) recentLogs.pop();
     console.log(`[${entry.time}] [${type}] ${message}`);
+    try { fileLog.escrever(type, message); } catch (e) { /* log em arquivo nunca derruba o servidor */ }
     return entry;
 }
 
@@ -979,6 +981,16 @@ app.get('/api/dashboard', async (req, res) => {
         res.json({ success: true, data });
     } catch (err) {
         logEvent('ERROR', 'Erro no dashboard: ' + err.message);
+        res.status(err.status || 500).json({ success: false, error: err.message });
+    }
+});
+
+app.put('/api/dashboard/meta', async (req, res) => {
+    try {
+        const v = reports.gravarMeta(req.body && req.body.metaDiaria);
+        logEvent('AUDIT', 'Meta diária do dashboard definida: R$ ' + v.toFixed(2));
+        res.json({ success: true, data: { metaDiaria: v } });
+    } catch (err) {
         res.status(err.status || 500).json({ success: false, error: err.message });
     }
 });

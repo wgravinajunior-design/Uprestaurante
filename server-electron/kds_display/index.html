@@ -307,5 +307,36 @@
         setInterval(() => { if (dados) desenhar(); }, 30000); // os minutos "andam"
         carregar();
     </script>
+
+    <!-- Tela cheia + tela sempre acesa (F ou botao) -->
+    <style>
+        #btnTelaCheia { position: fixed; right: 12px; bottom: 12px; z-index: 50; width: 44px; height: 44px; border-radius: 12px;
+            border: 1px solid rgba(148,163,184,.45); background: rgba(15,23,42,.72); color: #f1f5f9; font-size: 20px; cursor: pointer;
+            opacity: .55; transition: opacity .2s; backdrop-filter: blur(4px); }
+        #btnTelaCheia:hover { opacity: 1; }
+        :fullscreen #btnTelaCheia { opacity: .25; }
+    </style>
+    <button id="btnTelaCheia" title="Tela cheia (F)" aria-label="Tela cheia">⛶</button>
+    <script>
+    (function () {
+        var wl = null;
+        function manterAcesa() {
+            try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { wl = l; }).catch(function () {}); } catch (e) {}
+        }
+        function alternar() {
+            var d = document;
+            if (d.fullscreenElement) { d.exitFullscreen(); return; }
+            var el = d.documentElement;
+            (el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el);
+            manterAcesa();
+        }
+        document.getElementById('btnTelaCheia').addEventListener('click', alternar);
+        document.addEventListener('keydown', function (e) {
+            if ((e.key === 'f' || e.key === 'F') && !/INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) alternar();
+        });
+        document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && wl) manterAcesa(); });
+        manterAcesa();
+    })();
+    </script>
 </body>
 </html>

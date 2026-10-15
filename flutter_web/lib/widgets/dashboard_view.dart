@@ -295,6 +295,9 @@ class _DashboardViewState extends State<DashboardView> {
 
     final pico = d['picoHora'] as Map<String, dynamic>?;
     final melhor = d['melhorDia'] as Map<String, dynamic>?;
+    final canc = (d['cancelamentos'] as Map?)?.cast<String, dynamic>();
+    final pagamentos = ((d['pagamentos'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    final meta = (d['meta'] as Map?)?.cast<String, dynamic>();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,6 +308,12 @@ class _DashboardViewState extends State<DashboardView> {
           final w = (c.maxWidth - (cols - 1) * 12) / cols;
           return Wrap(spacing: 12, runSpacing: 12, children: kpis.map((k) => SizedBox(width: w, child: k)).toList());
         }),
+        const SizedBox(height: 12),
+        _cartaoMeta(meta),
+        if (canc != null && _i(canc['quantidade']) > 0) ...[
+          const SizedBox(height: 12),
+          _insight(Icons.block, '${_i(canc['quantidade'])} pedidos cancelados • taxa de ${_n(canc['taxa']).toStringAsFixed(1).replaceAll('.', ',')}%'),
+        ],
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -330,12 +339,160 @@ class _DashboardViewState extends State<DashboardView> {
           );
         }),
         const SizedBox(height: 16),
+        if (pagamentos.isNotEmpty) ...[
+          _cartao('Formas de pagamento', _formasPagamento(pagamentos)),
+          const SizedBox(height: 16),
+        ],
         _cartao('Mais vendidos', _topProdutos(d)),
         if (d['avaliacoes'] is Map && _i((d['avaliacoes'] as Map)['total']) > 0) ...[
           const SizedBox(height: 16),
           _cartao('Avaliação dos clientes', _avaliacoes((d['avaliacoes'] as Map).cast<String, dynamic>())),
         ],
         const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------- meta e pagamentos
+  Future<void> _editarMeta(double atual) async {
+    final ctrl = TextEditingController(text: atual > 0 ? atual.toStringAsFixed(2).replaceAll('.', ',') : '');
+    final v = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Meta diária de faturamento'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(prefixText: 'R\$ ', hintText: '0,00 (zero remove a meta)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, double.tryParse(ctrl.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    if (v == null) return;
+    try {
+      await ApiService.setMetaDiaria(v);
+      _carregar();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
+      }
+    }
+  }
+
+  Widget _cartaoMeta(Map<String, dynamic>? meta) {
+    final diaria = _n(meta?['diaria']);
+    final hoje = _n(meta?['hoje']);
+    final pct = _n(meta?['percentual']);
+    final bateu = diaria > 0 && hoje >= diaria;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: bateu ? AppTheme.success : AppTheme.borderLight),
+        boxShadow: AppTheme.modernCardShadow,
+      ),
+      child: diaria <= 0
+          ? Row(
+              children: [
+                const Icon(Icons.flag_outlined, color: AppTheme.textMuted),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Defina uma meta diária para acompanhar o faturamento de hoje.',
+                      style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+                ),
+                TextButton(onPressed: () => _editarMeta(0), child: const Text('Definir meta')),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(bateu ? Icons.emoji_events : Icons.flag, color: bateu ? AppTheme.success : AppTheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(bateu ? 'Meta de hoje batida!' : 'Meta de hoje',
+                          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+                    ),
+                    Text('${pct.toStringAsFixed(0)}%',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: bateu ? AppTheme.success : AppTheme.primary)),
+                    IconButton(
+                      tooltip: 'Alterar meta',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.textMuted),
+                      onPressed: () => _editarMeta(diaria),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: (pct / 100).clamp(0.0, 1.0),
+                    minHeight: 12,
+                    backgroundColor: AppTheme.borderLight,
+                    color: bateu ? AppTheme.success : AppTheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text('${_money.format(hoje)} de ${_money.format(diaria)}',
+                    style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondary)),
+              ],
+            ),
+    );
+  }
+
+  Widget _formasPagamento(List<Map<String, dynamic>> lista) {
+    const cores = [Color(0xFFEA580C), Color(0xFF2563EB), Color(0xFF10B981), Color(0xFF7C3AED), Color(0xFFF59E0B), Color(0xFF64748B)];
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            height: 14,
+            child: Row(
+              children: [
+                for (var i = 0; i < lista.length; i++)
+                  Expanded(
+                    flex: math.max(1, (_n(lista[i]['percentual']) * 10).round()),
+                    child: Container(color: cores[i % cores.length]),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < lista.length; i++)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Container(width: 10, height: 10, decoration: BoxDecoration(color: cores[i % cores.length], shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(lista[i]['descricao'] as String,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                ),
+                Text('${_n(lista[i]['percentual']).toStringAsFixed(1).replaceAll('.', ',')}%',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 100,
+                  child: Text(_money.format(_n(lista[i]['valor'])),
+                      textAlign: TextAlign.end, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

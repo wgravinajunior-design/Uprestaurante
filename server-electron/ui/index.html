@@ -427,7 +427,7 @@
 
     <div class="footer">
         <span id="ftDb">Banco: —</span>
-        <span>Versão 1.0.6 • Electron & Node.js</span>
+        <span>Versão 1.0.7 • Electron & Node.js</span>
     </div>
 
 
@@ -438,6 +438,7 @@
                 <button class="cfg-tab active" data-pane="paneTheme" data-open="btnOpenTheme">🎨 Cores & Logo</button>
                 <button class="cfg-tab" data-pane="paneDb" data-open="btnOpenDbCfg">🛢️ Base de Dados</button>
                 <button class="cfg-tab" data-pane="paneNet" data-open="btnOpenNet">☁️ Túnel & Serviço</button>
+                <button class="cfg-tab" data-pane="paneUpd" data-open="">🔄 Atualizações</button>
                 <button class="cfg-tab" data-pane="panePorts" data-open="">🔌 Portas</button>
                 <button class="cfg-tab" data-pane="paneTv" data-open="">📺 TV, Voz e Banners</button>
             </div>
@@ -445,6 +446,22 @@
                 <div class="cfg-pane active" id="paneTheme"></div>
                 <div class="cfg-pane" id="paneDb"></div>
                 <div class="cfg-pane" id="paneNet"></div>
+                <div class="cfg-pane" id="paneUpd">
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                        <div>
+                            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Versão instalada</div>
+                            <div id="updVersion" style="font-size:26px;font-weight:800;">—</div>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn btn-outline" id="btnUpdLogs">📂 Pasta de logs</button>
+                            <button class="btn" id="btnUpdCheck" style="background:#3b82f6;">Verificar agora</button>
+                            <button class="btn" id="btnUpdInstall" style="background:#10B981;display:none;">Reiniciar e instalar</button>
+                        </div>
+                    </div>
+                    <div id="updMsg" style="font-size:13px;color:#94a3b8;min-height:18px;margin-bottom:14px;"></div>
+                    <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Histórico de versões</div>
+                    <div id="updHist" style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#94a3b8;">Carregando…</div>
+                </div>
                 <div class="cfg-pane" id="panePorts">
                     <p style="font-size:13px;color:#94a3b8;margin-bottom:14px;">Porta de cada função. Ao salvar, o servidor reinicia sozinho. Use números entre 1024 e 65535, todos diferentes.</p>
                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
@@ -500,6 +517,45 @@
             msg.style.color = r.ok ? '#34d399' : '#f87171';
             msg.textContent = r.ok ? '✔ Salvo. Reiniciando o servidor…' : '✖ ' + r.message;
         });
+        // ---- Atualizacoes ----
+        const updMsg = (t, c) => { $('updMsg').textContent = t; $('updMsg').style.color = c || '#94a3b8'; };
+        const updPintar = (st) => {
+            if (!st) return;
+            const cor = st.fase === 'erro' ? '#f87171' : (st.fase === 'pronto' || st.fase === 'atualizado' ? '#34d399' : '#94a3b8');
+            updMsg((st.fase === 'baixando' && st.progresso ? st.mensagem + ' ' + st.progresso + '%' : st.mensagem) || 'Nenhuma verificação ainda.', cor);
+            $('btnUpdInstall').style.display = st.fase === 'pronto' ? '' : 'none';
+        };
+        let updTimer = null;
+        async function updCarregar() {
+            if (!(window.appCfg && window.appCfg.updateInfo)) { updMsg('Disponível apenas no aplicativo do servidor.', '#f87171'); return; }
+            const i = await window.appCfg.updateInfo();
+            $('updVersion').textContent = 'v' + i.version;
+            updPintar(i.state);
+            if (!updTimer) updTimer = setInterval(async () => {
+                if (!$('paneUpd').classList.contains('active')) return;
+                updPintar((await window.appCfg.updateInfo()).state);
+            }, 2000);
+            try {
+                const r = await fetch('https://api.github.com/repos/wgravinajunior-design/Uprestaurante/releases?per_page=6');
+                const lista = await r.json();
+                $('updHist').innerHTML = (Array.isArray(lista) ? lista : []).map((x) => {
+                    const v = String(x.tag_name || '').replace(/^v/, '');
+                    const atual = v === i.version;
+                    const d = x.published_at ? new Date(x.published_at).toLocaleDateString('pt-BR') : '';
+                    const nota = String(x.body || '').split('\n')[0].replace(/[<>&]/g, '');
+                    return '<div style="padding:8px 10px;border:1px solid #334155;border-radius:8px;' + (atual ? 'border-color:#3b82f6;' : '') + '">'
+                        + '<b style="color:#f8fafc;">v' + v.replace(/[<>&]/g, '') + '</b>' + (atual ? ' <span style="color:#60a5fa;">(instalada)</span>' : '')
+                        + ' <span style="float:right;">' + d + '</span><div>' + nota + '</div></div>';
+                }).join('') || 'Sem histórico disponível.';
+            } catch (e) { $('updHist').textContent = 'Não foi possível carregar o histórico (sem internet?).'; }
+        }
+        $('btnUpdCheck').addEventListener('click', async () => {
+            updMsg('Verificando…');
+            updPintar(await window.appCfg.updateCheck());
+        });
+        $('btnUpdInstall').addEventListener('click', () => window.appCfg.updateInstall());
+        $('btnUpdLogs').addEventListener('click', () => window.appCfg.openLogs());
+        document.querySelector('[data-pane=paneUpd]').addEventListener('click', updCarregar);
         $('btnCfgTv').addEventListener('click', () => $('btnOpenTvAdmin').click());
     });
     </script>

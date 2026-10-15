@@ -51,6 +51,54 @@ async function resumo(ini, fim) {
     return { pedidos, faturamento, ticketMedio: pedidos > 0 ? round2(faturamento / pedidos) : 0 };
 }
 
+// Meta diaria de faturamento (config/dashboard_meta.json)
+const fsMeta = require('fs');
+const pathMeta = require('path');
+const metaFile = () => pathMeta.join(process.env.CONFIG_DIR || pathMeta.join(__dirname, '..', 'config'), 'dashboard_meta.json');
+function lerMeta() {
+    try {
+        const v = parseFloat(JSON.parse(fsMeta.readFileSync(metaFile(), 'utf8')).metaDiaria);
+        return isFinite(v) && v > 0 ? v : 0;
+    } catch (e) { return 0; }
+}
+function gravarMeta(valor) {
+    const v = parseFloat(valor);
+    if (!isFinite(v) || v < 0 || v > 100000000) throw httpError(400, 'Meta inválida');
+    fsMeta.mkdirSync(pathMeta.dirname(metaFile()), { recursive: true });
+    fsMeta.writeFileSync(metaFile(), JSON.stringify({ metaDiaria: round2(v) }, null, 2));
+    return round2(v);
+}
+
+// Forma de pagamento (TB_PEDIDO_VENDA_FIN x TB_ESPECIE_MOEDA) dos pedidos finalizados no periodo
+async function porPagamento(ini, fim) {
+    const rows = await db.query(
+        `SELECT F.PEVF_ESPECIE_MOEDA AS E, MAX(M.ESP_DESCRICAO) AS DESCR, COUNT(*) AS N,
+                COALESCE(SUM(F.PEVF_VALOR - COALESCE(F.PEVF_TROCO, 0)), 0) AS V
+         FROM TB_PEDIDO_VENDA_FIN F
+         JOIN TB_PEDIDO_VENDA P ON (P.PEV_EMPRESA = F.PEVF_EMPRESA AND P.PEV_ID = F.PEVF_PEDIDO_VENDA)
+         LEFT JOIN TB_ESPECIE_MOEDA M ON (M.ESP_ID = F.PEVF_ESPECIE_MOEDA)
+         WHERE P.PEV_STATUS = 'F' AND P.PEV_DT_EMISSAO >= '${ini}' AND P.PEV_DT_EMISSAO <= '${fim}'
+         GROUP BY F.PEVF_ESPECIE_MOEDA
+         ORDER BY 4 DESC`);
+    const total = rows.reduce((t, r) => t + num(r.V), 0);
+    return rows.map((r) => ({
+        id: parseInt(r.E, 10) || 0,
+        descricao: String(r.DESCR || 'Outros').trim(),
+        lancamentos: parseInt(r.N, 10) || 0,
+        valor: round2(num(r.V)),
+        percentual: total > 0 ? round2((num(r.V) / total) * 100) : 0
+    }));
+}
+
+async function cancelamentos(ini, fim, finalizados) {
+    const [r] = await db.query(
+        `SELECT COUNT(*) AS N FROM TB_PEDIDO_VENDA
+         WHERE PEV_STATUS = 'C' AND PEV_DT_EMISSAO >= '${ini}' AND PEV_DT_EMISSAO <= '${fim}'`);
+    const n = parseInt(r.N, 10) || 0;
+    const base = n + finalizados;
+    return { quantidade: n, taxa: base > 0 ? round2((n / base) * 100) : 0 };
+}
+
 async function porDia(ini, fim) {
     const rows = await db.query(
         `SELECT PEV_DT_EMISSAO AS D, COUNT(*) AS N, COALESCE(SUM(PEV_VALOR_TOTAL), 0) AS V
@@ -90,7 +138,7 @@ async function dashboard({ inicio, fim, comparar = 'ANTERIOR' } = {}) {
         antIni = addDays(antFim, -(dias - 1));
     }
 
-    const [atual, diaria, horas, semana, topQtd, topFat, ultima] = await Promise.all([
+    const [atual, diaria, horas, semana, topQtd, topFat, ultima, pagamentos] = await Promise.all([
         resumo(inicio, fim),
         porDia(inicio, fim),
         db.query(
@@ -119,8 +167,12 @@ async function dashboard({ inicio, fim, comparar = 'ANTERIOR' } = {}) {
              WHERE P.PEV_STATUS = 'F' AND P.PEV_DT_EMISSAO >= '${inicio}' AND P.PEV_DT_EMISSAO <= '${fim}'
              GROUP BY I.PEVI_PRODUTO
              ORDER BY 4 DESC`),
-        db.query(`SELECT MAX(PEV_DT_EMISSAO) AS D FROM TB_PEDIDO_VENDA WHERE PEV_STATUS = 'F'`)
+        db.query(`SELECT MAX(PEV_DT_EMISSAO) AS D FROM TB_PEDIDO_VENDA WHERE PEV_STATUS = 'F'`),
+        porPagamento(inicio, fim)
     ]);
+    const canc = await cancelamentos(inicio, fim, atual.pedidos);
+    const metaDiaria = lerMeta();
+    const hojeRes = metaDiaria > 0 ? await resumo(h, h) : { faturamento: 0, pedidos: 0 };
 
     const itemTop = (r) => ({
         produtoId: parseInt(r.ID, 10) || 0,
@@ -183,7 +235,14 @@ async function dashboard({ inicio, fim, comparar = 'ANTERIOR' } = {}) {
         topQuantidade: topQtd.map(itemTop),
         topFaturamento: topFat.map(itemTop),
         ultimaVenda: ultima[0] && ultima[0].D ? String(ultima[0].D).substring(0, 10) : null,
-        avaliacoes: avaliacoes.resumo(inicio, fim)
+        avaliacoes: avaliacoes.resumo(inicio, fim),
+        pagamentos,
+        cancelamentos: canc,
+        meta: {
+            diaria: metaDiaria,
+            hoje: hojeRes.faturamento,
+            percentual: metaDiaria > 0 ? round2((hojeRes.faturamento / metaDiaria) * 100) : 0
+        }
     };
 }
 
@@ -334,4 +393,6 @@ async function mudancas({ data } = {}) {
     };
 }
 
-module.exports = { dashboard, mudancas };
+module.exports = {
+    lerMeta,
+    gravarMeta, dashboard, mudancas };
