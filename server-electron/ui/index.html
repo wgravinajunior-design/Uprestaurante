@@ -328,17 +328,17 @@
             </button>
             <button class="btn" id="btnOpenOrders" style="background: linear-gradient(135deg, #10B981, #059669); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-                🎫 Fila de Senhas (Porta 8082)
+                🎫 Fila de Senhas (Porta <span data-port="orders">8082</span>)
             </button>
             <button class="btn" id="btnOpenTv" style="background: linear-gradient(135deg, #FF6B00, #EA580C); box-shadow: 0 4px 14px rgba(234, 88, 12, 0.4);">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                📺 Vitrine TV (Porta 8081)
+                📺 Vitrine TV (Porta <span data-port="tv">8081</span>)
             </button>
             <button class="btn" id="btnOpenKds" style="background: linear-gradient(135deg, #8B5CF6, #6D28D9); box-shadow: 0 4px 14px rgba(109, 40, 217, 0.4);">
-                👨‍🍳 KDS Cozinha (8082/kds)
+                👨‍🍳 KDS Cozinha (<span data-port="orders">8082</span>/kds)
             </button>
             <button class="btn" id="btnOpenCardapio" style="background: linear-gradient(135deg, #EC4899, #BE185D); box-shadow: 0 4px 14px rgba(190, 24, 93, 0.4);">
-                📱 Cardápio e QR Code (8083)
+                📱 Cardápio e QR Code (<span data-port="public">8083</span>)
             </button>
             <button class="btn" id="btnOpenTvAdmin" hidden style="background: linear-gradient(135deg, #0EA5E9, #0284C7); box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);">
                 ⚙️ Config. TV, Voz e Banners
@@ -373,17 +373,17 @@
 
                 <div class="metric-card">
                     <span class="metric-label">Porta da API REST</span>
-                    <span class="metric-value">http://localhost:8080</span>
+                    <span class="metric-value">http://localhost:<span data-port="api">8080</span></span>
                 </div>
 
                 <div class="metric-card">
                     <span class="metric-label">Vitrine Promo TV</span>
-                    <span class="metric-value" style="color: #f97316; font-size: 14px;">http://localhost:8081</span>
+                    <span class="metric-value" style="color: #f97316; font-size: 14px;">http://localhost:<span data-port="tv">8081</span></span>
                 </div>
 
                 <div class="metric-card">
                     <span class="metric-label">Fila de Senhas & KDS</span>
-                    <span class="metric-value" style="color: #34d399; font-size: 14px;">http://localhost:8082</span>
+                    <span class="metric-value" style="color: #34d399; font-size: 14px;">http://localhost:<span data-port="orders">8082</span></span>
                 </div>
 
                 <div class="metric-card">
@@ -427,7 +427,7 @@
 
     <div class="footer">
         <span id="ftDb">Banco: —</span>
-        <span>Versão 1.0.2 • Electron & Node.js</span>
+        <span>Versão 1.0.3 • Electron & Node.js</span>
     </div>
 
 
@@ -438,12 +438,27 @@
                 <button class="cfg-tab active" data-pane="paneTheme" data-open="btnOpenTheme">🎨 Cores & Logo</button>
                 <button class="cfg-tab" data-pane="paneDb" data-open="btnOpenDbCfg">🛢️ Base de Dados</button>
                 <button class="cfg-tab" data-pane="paneNet" data-open="btnOpenNet">☁️ Túnel & Serviço</button>
+                <button class="cfg-tab" data-pane="panePorts" data-open="">🔌 Portas</button>
                 <button class="cfg-tab" data-pane="paneTv" data-open="">📺 TV, Voz e Banners</button>
             </div>
             <div class="cfg-body">
                 <div class="cfg-pane active" id="paneTheme"></div>
                 <div class="cfg-pane" id="paneDb"></div>
                 <div class="cfg-pane" id="paneNet"></div>
+                <div class="cfg-pane" id="panePorts">
+                    <p style="font-size:13px;color:#94a3b8;margin-bottom:14px;">Porta de cada função. Ao salvar, o servidor reinicia sozinho. Use números entre 1024 e 65535, todos diferentes.</p>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+                        <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">API REST / Flutter Web<input type="number" id="portApi" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
+                        <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">Vitrine TV<input type="number" id="portTv" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
+                        <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">Fila de Senhas &amp; KDS<input type="number" id="portOrders" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
+                        <label style="font-size:11px;color:#94a3b8;display:flex;flex-direction:column;gap:6px;">Cardápio / Área pública (túnel)<input type="number" id="portPublic" min="1024" max="65535" style="background:#1e293b;border:1px solid #334155;color:#f8fafc;padding:8px 12px;border-radius:8px;font-size:13px;"></label>
+                    </div>
+                    <div id="portsMsg" style="font-size:12px;min-height:16px;color:#94a3b8;margin-top:12px;"></div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+                        <button class="btn btn-outline" id="btnPortsDefault">Padrão</button>
+                        <button class="btn" id="btnPortsSave" style="background:#10B981;">💾 Salvar e reiniciar</button>
+                    </div>
+                </div>
                 <div class="cfg-pane" id="paneTv">
                     <p style="font-size:13px;color:#94a3b8;margin-bottom:14px;">Configuração da vitrine de TV, voz da chamada e banners (abre o painel de administração).</p>
                     <button class="btn" id="btnCfgTv" style="background: linear-gradient(135deg, #0EA5E9, #0284C7);">Abrir painel de TV</button>
@@ -451,6 +466,10 @@
             </div>
         </div>
     </div>
+    <script>
+        window.PORTS = (window.appCfg && window.appCfg.ports) || { api: 8080, tv: 8081, orders: 8082, public: 8083 };
+        document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('[data-port]').forEach((e) => { e.textContent = window.PORTS[e.dataset.port]; }));
+    </script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         const $ = (id) => document.getElementById(id);
@@ -467,6 +486,18 @@
         $('btnOpenCfg').addEventListener('click', () => { $('cfgModal').classList.add('open'); show(document.querySelector('.cfg-tab.active')); });
         $('btnCloseCfg').addEventListener('click', () => $('cfgModal').classList.remove('open'));
         $('cfgModal').addEventListener('click', (e) => { if (e.target === $('cfgModal')) $('cfgModal').classList.remove('open'); });
+        const pf = { api: 'portApi', tv: 'portTv', orders: 'portOrders', public: 'portPublic' };
+        const fillPorts = (o) => Object.keys(pf).forEach((k) => { $(pf[k]).value = o[k]; });
+        fillPorts(window.PORTS);
+        $('btnPortsDefault').addEventListener('click', () => fillPorts({ api: 8080, tv: 8081, orders: 8082, public: 8083 }));
+        $('btnPortsSave').addEventListener('click', async () => {
+            const v = {}; Object.keys(pf).forEach((k) => { v[k] = Number($(pf[k]).value); });
+            const msg = $('portsMsg');
+            if (!(window.appCfg && window.appCfg.portsSave)) { msg.style.color = '#f87171'; msg.textContent = 'Disponível apenas no aplicativo do servidor.'; return; }
+            const r = await window.appCfg.portsSave(v);
+            msg.style.color = r.ok ? '#34d399' : '#f87171';
+            msg.textContent = r.ok ? '✔ Salvo. Reiniciando o servidor…' : '✖ ' + r.message;
+        });
         $('btnCfgTv').addEventListener('click', () => $('btnOpenTvAdmin').click());
     });
     </script>
@@ -620,7 +651,7 @@
     <script>
         (function () {
             const $ = (id) => document.getElementById(id);
-            const API = 'http://localhost:8080/api/tunnel';
+            const API = 'http://localhost:' + PORTS.api + '/api/tunnel';
             const info = (t, color) => { $('tnInfo').textContent = t; $('tnInfo').style.color = color || '#94a3b8'; };
             const svc = (t, color) => { $('svcInfo').textContent = t; $('svcInfo').style.color = color || '#94a3b8'; };
             const cfgBody = () => ({ mode: $('tnMode').value, port: $('tnPort').value, token: $('tnToken').value, hostname: $('tnHost').value, exe: $('tnExe').value, autoStart: $('tnAuto').checked });
@@ -686,7 +717,7 @@
             const msg = (t, ok) => { $('dbMsg').textContent = t; $('dbMsg').style.color = ok === undefined ? '#94a3b8' : (ok ? '#34d399' : '#f87171'); };
             const body = () => ({ host: $('dbHost').value, port: $('dbPort').value, database: $('dbPath').value, user: $('dbUser').value, password: $('dbPass').value });
             async function post(url) {
-                const r = await fetch('http://localhost:8080' + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()) });
+                const r = await fetch('http://localhost:' + PORTS.api + '' + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body()) });
                 return r.json();
             }
             $('btnOpenDbCfg').addEventListener('click', async () => {
@@ -694,7 +725,7 @@
                 $('dbPass').value = '';
                 $('dbModal').style.display = 'flex';
                 try {
-                    const d = (await (await fetch('http://localhost:8080/api/db-config')).json()).data;
+                    const d = (await (await fetch('http://localhost:' + PORTS.api + '/api/db-config')).json()).data;
                     $('dbHost').value = d.host; $('dbPort').value = d.port; $('dbPath').value = d.database; $('dbUser').value = d.user;
                 } catch (e) { msg('Não foi possível ler a configuração atual', false); }
             });
@@ -733,7 +764,7 @@
 
         async function fetchCompany() {
             try {
-                const res = await fetch('http://localhost:8080/api/company');
+                const res = await fetch('http://localhost:' + PORTS.api + '/api/company');
                 const data = await res.json();
                 if (data.success && data.data) {
                     const c = data.data;
@@ -754,7 +785,7 @@
 
         async function fetchStats() {
             try {
-                const res = await fetch('http://localhost:8080/api/stats');
+                const res = await fetch('http://localhost:' + PORTS.api + '/api/stats');
                 const data = await res.json();
                 if (data.success && data.data) {
                     document.getElementById('statTotal').innerText = data.data.totalProdutos.toLocaleString();
@@ -770,7 +801,7 @@
 
         async function fetchLogs() {
             try {
-                const res = await fetch('http://localhost:8080/api/logs');
+                const res = await fetch('http://localhost:' + PORTS.api + '/api/logs');
                 const data = await res.json();
                 if (data.success && data.data) {
                     const logsBox = document.getElementById('logsBox');
@@ -809,7 +840,7 @@
             const modoTema = document.querySelector('input[name="cfgThemeMode"]:checked').value;
 
             try {
-                const res = await fetch('http://localhost:8080/api/company/theme', {
+                const res = await fetch('http://localhost:' + PORTS.api + '/api/company/theme', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ nome, corPrimaria, modoTema })
@@ -826,37 +857,37 @@
         });
 
         document.getElementById('btnOpenWeb').addEventListener('click', () => {
-            const url = 'http://localhost:8080/';
+            const url = 'http://localhost:' + PORTS.api + '/';
             if (shell) shell.openExternal(url);
             else window.open(url, '_blank');
         });
 
         document.getElementById('btnOpenTv').addEventListener('click', () => {
-            const url = 'http://localhost:8081/';
+            const url = 'http://localhost:' + PORTS.tv + '/';
             if (shell) shell.openExternal(url);
             else window.open(url, '_blank');
         });
 
         document.getElementById('btnOpenKds').addEventListener('click', () => {
-            const url = 'http://localhost:8082/kds/';
+            const url = 'http://localhost:' + PORTS.orders + '/kds/';
             if (shell) shell.openExternal(url);
             else window.open(url, '_blank');
         });
 
         document.getElementById('btnOpenCardapio').addEventListener('click', () => {
-            const url = 'http://localhost:8083/cardapio';
+            const url = 'http://localhost:' + PORTS.public + '/cardapio';
             if (shell) shell.openExternal(url);
             else window.open(url, '_blank');
         });
 
         document.getElementById('btnOpenTvAdmin').addEventListener('click', () => {
-            const url = 'http://localhost:8081/admin.html';
+            const url = 'http://localhost:' + PORTS.tv + '/admin.html';
             if (shell) shell.openExternal(url);
             else window.open(url, '_blank');
         });
 
         document.getElementById('btnOpenOrders').addEventListener('click', () => {
-            const url = 'http://localhost:8082/';
+            const url = 'http://localhost:' + PORTS.orders + '/';
             if (shell) shell.openExternal(url);
             else window.open(url, '_blank');
         });
@@ -869,9 +900,9 @@
 
         async function fetchDbInfo() {
             try {
-                const c = (await (await fetch('http://localhost:8080/api/db-config')).json()).data;
+                const c = (await (await fetch('http://localhost:' + PORTS.api + '/api/db-config')).json()).data;
                 let ok = false;
-                try { ok = (await fetch('http://localhost:8080/api/health')).ok; } catch (e) { ok = false; }
+                try { ok = (await fetch('http://localhost:' + PORTS.api + '/api/health')).ok; } catch (e) { ok = false; }
                 const arq = String(c.database || '').split(/[\\/]/).pop();
                 document.getElementById('dbStatusTitle').innerText = ok ? 'Firebird Conectado' : 'Banco indisponível';
                 document.getElementById('dbStatusSub').innerText = c.host + ':' + c.port + ' / ' + arq;

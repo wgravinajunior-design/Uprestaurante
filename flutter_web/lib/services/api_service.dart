@@ -83,7 +83,8 @@ class ApiService {
     final host = u.host.isNotEmpty ? u.host : 'localhost';
     // Servido pela própria API (porta 8080, ou domínio/porta padrão atrás de proxy/túnel): mesma origem.
     // Em 'flutter run' (porta aleatória) cai para host:8080.
-    final servidoPelaApi = u.host.isNotEmpty && (!u.hasPort || u.port == 8080);
+    final marcado = web.document.querySelector('meta[name=uprestaurante-api]') != null; // injetado pelo servidor
+    final servidoPelaApi = u.host.isNotEmpty && (marcado || !u.hasPort || u.port == 8080);
     return servidoPelaApi ? u.origin : 'http://$host:8080';
   }
 

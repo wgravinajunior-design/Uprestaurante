@@ -12,6 +12,7 @@ if (app.isPackaged) {
     const dst = path.join(process.env.CONFIG_DIR, 'db.json');
     if (!fs0.existsSync(dst) && fs0.existsSync(seed)) fs0.copyFileSync(seed, dst);
 }
+const portsCfg = require('./server/ports');
 const { startServer, logEvent } = require('./server/index');
 const { setupAutoUpdate } = require('./updater');
 
@@ -24,7 +25,8 @@ let publicServerInstance;
 async function createWindow() {
     // Start Express REST API & static file servers (Main: 8080, TV: 8081, Orders: 8082)
     try {
-        const res = await startServer(8080, 8081, 8082);
+        const p = portsCfg.get();
+        const res = await startServer(p.api, p.tv, p.orders);
         serverInstance = res.server;
         tvServerInstance = res.tvServer;
         ordersServerInstance = res.ordersServer;
@@ -46,7 +48,7 @@ async function createWindow() {
             contextIsolation: true,
             sandbox: true,
             preload: path.join(__dirname, 'preload.js'),
-            additionalArguments: [`--api-token=${process.env.API_TOKEN || ''}`]
+            additionalArguments: [`--api-token=${process.env.API_TOKEN || ''}`, `--ports=${JSON.stringify(portsCfg.get())}`]
         }
     });
 
@@ -95,6 +97,14 @@ function runElevated(action) {
     });
 }
 
+ipcMain.handle('ports-get', () => ({ current: portsCfg.get(), defaults: portsCfg.DEFAULTS }));
+ipcMain.handle('ports-save', (_e, input) => {
+    try {
+        portsCfg.save(input);
+        setTimeout(() => { app.relaunch(); app.exit(0); }, 400);
+        return { ok: true };
+    } catch (e) { return { ok: false, message: e.message }; }
+});
 ipcMain.handle('service-status', () => serviceStatus());
 ipcMain.handle('service-install', () => runElevated('install'));
 ipcMain.handle('service-uninstall', () => runElevated('uninstall'));

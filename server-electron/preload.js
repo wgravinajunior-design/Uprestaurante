@@ -5,8 +5,14 @@ const { contextBridge, ipcRenderer } = require('electron');
 const arg = process.argv.find((a) => a.startsWith('--api-token='));
 const apiToken = arg ? arg.substring('--api-token='.length) : '';
 
+const portsArg = process.argv.find((a) => a.startsWith('--ports='));
+let ports = { api: 8080, tv: 8081, orders: 8082, public: 8083 };
+try { if (portsArg) ports = JSON.parse(portsArg.substring('--ports='.length)); } catch (e) { /* padrao */ }
+
 contextBridge.exposeInMainWorld('appCfg', {
     apiToken,
+    ports,
+    portsSave: (p) => ipcRenderer.invoke('ports-save', p),
     pickDbFile: (current) => ipcRenderer.invoke('pick-db-file', current),
     serviceStatus: () => ipcRenderer.invoke('service-status'),
     serviceInstall: () => ipcRenderer.invoke('service-install'),

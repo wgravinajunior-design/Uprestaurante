@@ -15,10 +15,11 @@ const publicMod = require('./public');
 const QRCode = require('qrcode');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
-const PORT_TV = process.env.PORT_TV || 8081;
-const PORT_ORDERS = process.env.PORT_ORDERS || 8082;
-const PORT_PUBLIC = process.env.PORT_PUBLIC || 8083;
+const portsCfg = require('./ports').get();
+const PORT = process.env.PORT || portsCfg.api;
+const PORT_TV = process.env.PORT_TV || portsCfg.tv;
+const PORT_ORDERS = process.env.PORT_ORDERS || portsCfg.orders;
+const PORT_PUBLIC = process.env.PORT_PUBLIC || portsCfg.public;
 
 // Dedicated TV Signage Express App (Port 8081)
 // CORS: aceita apenas origens do mesmo host (portas 8080/8081/8082) ou requisicoes sem Origin
@@ -1146,7 +1147,12 @@ if (fs.existsSync(flutterWebPath)) {
     app.use(express.static(flutterWebPath));
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api/') && !req.path.startsWith('/tv') && !req.path.startsWith('/pedidos')) {
-            return res.sendFile(path.join(flutterWebPath, 'index.html'));
+            // marca que o app e servido pela API (a porta pode ser qualquer uma)
+            try {
+                const html = fs.readFileSync(path.join(flutterWebPath, 'index.html'), 'utf8')
+                    .replace('<head>', '<head><meta name="uprestaurante-api" content="1">');
+                return res.type('html').send(html);
+            } catch (e) { return res.sendFile(path.join(flutterWebPath, 'index.html')); }
         }
         res.status(404).json({ success: false, error: 'Rota não encontrada' });
     });

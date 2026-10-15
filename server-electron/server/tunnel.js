@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CFG_PATH = path.join(process.env.CONFIG_DIR || path.join(__dirname, '..', 'config'), 'tunnel.json');
-const DEFAULTS = { mode: 'quick', port: 8083, token: '', hostname: '', autoStart: false, exe: '' };
+const DEFAULTS = { mode: 'quick', port: require('./ports').get().public, token: '', hostname: '', autoStart: false, exe: '' };
 const MAX_LOG = 60;
 
 let proc = null;
